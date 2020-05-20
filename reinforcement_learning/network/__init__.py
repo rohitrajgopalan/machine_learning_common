@@ -1,3 +1,3 @@
-from .actionvaluenetwork import ActionValueNetwork
+from .actionvaluenetwork import *
 
-__all__ = ['ActionValueNetwork']
+__all__ = ['ActionValueNetwork','NetworkType']
