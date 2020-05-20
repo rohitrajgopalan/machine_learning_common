@@ -3,10 +3,11 @@ import enum
 from collections import deque
 from copy import deepcopy
 
-class ActionValueNetwork:
-    SINGLE_NETWORK = 1
-    DOUBLE_NETWORK = 2
-    
+class NetworkType(enum.Enum):
+    SINGLE = 1
+    DOUBLE = 2
+
+class ActionValueNetwork:    
     num_dim_state = 0
     num_hidden_units = 0
     rand_generator = None
@@ -27,7 +28,7 @@ class ActionValueNetwork:
         self.initialise_weights()
         
     def initialise_weights(self):
-        for _ in range(self.network_type):
+        for _ in range(self.network_type.value):
             w = [dict() for i in range(0, len(self.layer_sizes) - 1)]
             for i in range(len(self.layer_sizes) - 1):
                 w[i]['W'] = self.init_saxe(self.layer_sizes[i], self.layer_sizes[i + 1])
@@ -36,17 +37,17 @@ class ActionValueNetwork:
 
     #Developing this function to decide which index of weights to use
     def determine_coin_side(self):
-        return self.rand_generator.choice(self.network_type)
+        return self.rand_generator.choice(self.network_type.value)
 
     def get_action_values(self,s,coin_side=None):
         if s is None:
             return np.zeros(self.num_actions)
         if coin_side is None:
             q_vals = np.zeros(self.num_actions)
-            for i in range(self.network_type):
+            for i in range(self.network_type.value):
                 q_vals += self.get_action_values(s,self.weights[i])
             
-            return q_vals/self.network_type
+            return q_vals/self.network_type.value
         else:
             return self.get_action_values(s,self.weights[coin_side])
     
