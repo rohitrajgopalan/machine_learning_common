@@ -1,14 +1,15 @@
-from agent import agent
-from dyna import DynaAgent
-from dyna_plus import DynaPlusAgent
-from prioritized_sweeping import PrioritizedSweepingAgent
+from reinforcement_learning.agent.base_agent import Agent
+from reinforcement_learning.agent.dyna import DynaAgent
+from reinforcement_learning.agent.dyna_plus import DynaPlusAgent
+from reinforcement_learning.agent.prioritized_sweeping import PrioritizedSweepingAgent
 
-def choose_agent(agent_name,**args):
+
+def choose_agent(agent_name, args=None):
     if agent_name == 'dyna':
         return DynaAgent(args)
     elif agent_name == 'dyna+':
         return DynaPlusAgent(args)
     elif agent_name == 'prioritized_sweeping':
-        return PrioritizedSweeping(args)
+        return PrioritizedSweepingAgent(args)
     else:
         return Agent(args)

@@ -1,35 +1,32 @@
-from dyna import DynaAgent
 import numpy as np
+
+from reinforcement_learning.agent.dyna import DynaAgent
+
 
 class DynaPlusAgent(DynaAgent):
     kappa = 0.0
-    tau = None
+    tau = {}
 
-    def __init__(self,**args):
-        self.tau = np.empty((0,len(self.actions)))
+    def __init__(self, args=None):
         super().__init__(args)
 
-    def add_state(self,s):
-        if self.get_state_index(s) == -1:
-            super().add_state(s)
-            self.tau = np.append(self.tau,np.zeros((1,len(self.actions))),axis=0)
+    def step(self, r, terminal=False):
+        if self.algorithm.get_state_index(self.next_state) == -1:
+            self.tau.update({self.last_state: [0]*len(self.actions)})
+        for s in self.tau:
+            for a in range(len(self.actions)):
+                self.tau[s][a] += 1
+        super().step(r, terminal)
+        self.tau[self.state_space.index(self.last_state)][self.last_action] = 0
 
-    def step(self,r,terminal=False):
-        self.tau += 1
-        super().step(r,terminal)
-        self.tau[self.get_state_index(self.last_state),self.last_action] = 0
-        
-    def refine_reward(self,s,a,r):
-        return r + (self.kappa * np.sqrt(self.tau[self.get_state_index(s),a]))
+    def refine_reward(self, s, a, r):
+        return r + (self.kappa * np.sqrt(self.tau[self.algorithm.get_state_index(s), a]))
 
-    def update_model(r,terminal=False):
-        state_index = self.get_state_index(self.last_state)
-        state_index_ = self.get_state_index(self.current_state)
-
-        if not state_index in self.model:
-            self.model[state_index] = {self.last_action: (state_index_,r,int(terminal))}
+    def update_model(self, r, terminal=False):
+        if self.last_state not in self.model:
+            self.model[self.last_state] = {self.last_action: (self.current_state, r, int(terminal))}
             for action in range(len(self.actions)):
                 if not action == self.last_action:
-                    self.model[state_index].update({action: (state_index,0,0)})
+                    self.model[self.last_state].update({action: (self.current_state, 0, 0)})
         else:
-            self.model[state_index][self.last_action] = (state_index_,r,int(terminal))
+            self.model[self.last_state][self.last_action] = (self.current_state, r, int(terminal))

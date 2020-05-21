@@ -1,13 +1,15 @@
-import numpy as np
 import enum
-from collections import deque
 from copy import deepcopy
+
+import numpy as np
+
 
 class NetworkType(enum.Enum):
     SINGLE = 1
     DOUBLE = 2
 
-class ActionValueNetwork:    
+
+class ActionValueNetwork:
     num_dim_state = 0
     num_hidden_units = 0
     rand_generator = None
@@ -16,42 +18,41 @@ class ActionValueNetwork:
     network_type = None
 
     weights = []
-    
-    def __init__(self,network_type,state_dim,num_hidden_units,num_actions,random_seed):
+
+    def __init__(self, network_type, state_dim, num_hidden_units, num_actions, random_seed):
         self.network_type = network_type
         self.num_dim_state = state_dim
         self.num_hidden_units = num_hidden_units
         self.num_actions = num_actions
         self.rand_generator = np.random.RandomState(random_seed)
         self.layer_sizes = np.array([self.num_dim_state, self.num_hidden_units, self.num_actions])
-        
         self.initialise_weights()
-        
+
     def initialise_weights(self):
         for _ in range(self.network_type.value):
-            w = [dict() for i in range(0, len(self.layer_sizes) - 1)]
-            for i in range(len(self.layer_sizes) - 1):
+            w = [dict() for _ in range(0, len(self.layer_sizes) - 1)]
+            for i in range(0, len(self.layer_sizes) - 1):
                 w[i]['W'] = self.init_saxe(self.layer_sizes[i], self.layer_sizes[i + 1])
                 w[i]['b'] = np.zeros((1, self.layer_sizes[i + 1]))
             self.weights.append(w)
 
-    #Developing this function to decide which index of weights to use
+    # Developing this function to decide which index of weights to use
     def determine_coin_side(self):
         return self.rand_generator.choice(self.network_type.value)
 
-    def get_action_values(self,s,coin_side=None):
+    def get_action_values(self, s, coin_side=None):
         if s is None:
-            return np.zeros(self.num_actions)
+            return np.zeros((1, self.num_actions))
         if coin_side is None:
-            q_vals = np.zeros(self.num_actions)
+            q_vals = np.zeros((1, self.num_actions))
             for i in range(self.network_type.value):
-                q_vals += self.get_action_values(s,self.weights[i])
-            
-            return q_vals/self.network_type.value
+                q_vals += self.get_action_values_with_weights(s, self.weights[i])
+
+            return q_vals / self.network_type.value
         else:
-            return self.get_action_values(s,self.weights[coin_side])
-    
-    def get_action_values(self, s, weights):
+            return self.get_action_values_with_weights(s, self.weights[coin_side])
+
+    def get_action_values_with_weights(self, s, weights):
         if s is None:
             return np.zeros(self.num_actions)
         """
@@ -61,53 +62,51 @@ class ActionValueNetwork:
             The action-values (Numpy array) calculated using the network's weights.
         """
         s = np.array([s])
-        
-        W0, b0 = weights[0]['W'], weights[0]['b']
-        psi = np.dot(s, W0) + b0
+        w0, b0 = weights[0]['W'], weights[0]['b']
+        psi = np.dot(s, w0) + b0
         x = np.maximum(psi, 0)
-        
-        W1, b1 = weights[1]['W'], weights[1]['b']
-        q_vals = np.dot(x, W1) + b1
 
-        return q_vals
+        w1, b1 = weights[1]['W'], weights[1]['b']
 
-    def get_target_update(self,s,delta_mat,coin_side):
-        return self.get_target_update(s,delta_mat,self.weights[coin_side])
+        return np.dot(x, w1) + b1
 
-    def get_target_update(self, states, delta_mat, weights):
+    def get_target_update(self, s, delta_mat, coin_side):
+        return self.get_target_update_with_weights(s, delta_mat, self.weights[coin_side])
+
+    def get_target_update_with_weights(self, states, delta_mat, weights):
         """
         Args:
-            s (Numpy array): The state.
+            states  (Numpy array): The state.
             delta_mat (Numpy array): A 2D array of shape (batch_size, num_actions). Each row of delta_mat  
             correspond to one state in the batch. Each row has only one non-zero element 
             which is the TD-error corresponding to the action taken.
+            weights (Dictionary): Weights to get the target update with.
         Returns:
             The TD update (Array of dictionaries with gradient times TD errors) for the network's weights
         """
 
         num_states = states.shape[0]
-        W0, b0 = weights[0]['W'], weights[0]['b']
-        W1, b1 = weights[1]['W'], weights[1]['b']
-        
-        psi = np.dot(states, W0) + b0
+        w0, b0 = weights[0]['W'], weights[0]['b']
+        w1, b1 = weights[1]['W'], weights[1]['b']
+
+        psi = np.dot(states, w0) + b0
         x = np.maximum(psi, 0)
         dx = (psi > 0).astype(float)
 
         # td_update has the same structure as self.weights, that is an array of dictionaries.
         # td_update[0]["W"], td_update[0]["b"], td_update[1]["W"], and td_update[1]["b"] have the same shape as 
         # self.weights[0]["W"], self.weights[0]["b"], self.weights[1]["W"], and self.weights[1]["b"] respectively
-        td_update = [dict() for i in range(len(self.weights))]
-         
+        td_update = [dict() for _ in range(len(weights))]
+
         v = delta_mat
         td_update[1]['W'] = np.dot(x.T, v) * 1. / num_states
         td_update[1]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / num_states
-        
-        v = np.dot(v, W1.T) * dx
+
+        v = np.dot(v, w1.T) * dx
         td_update[0]['W'] = np.dot(states.T, v) * 1. / num_states
         td_update[0]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / num_states
-                
+
         return td_update
-    
 
     def init_saxe(self, rows, cols):
         """
@@ -128,14 +127,14 @@ class ActionValueNetwork:
         if rows < cols:
             tensor = tensor.T
         return tensor
-    
+
     def get_weights(self):
         """
         Returns: 
             A copy of the current weights of this network.
         """
         return deepcopy(self.weights)
-    
+
     def set_weights(self, weights):
         """
         Args: 

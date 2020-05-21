@@ -1,4 +1,6 @@
 import numpy as np
+
+
 class ReplayBuffer:
     def __init__(self, size, minibatch_size, seed):
         """
@@ -30,8 +32,8 @@ class ReplayBuffer:
         Returns:
             A list of transition tuples including state, action, reward, terinal, and next_state
         """
-        idxs = self.rand_generator.choice(np.arange(len(self.buffer)), size=self.minibatch_size)
-        return [self.buffer[idx] for idx in idxs]
+        ids = self.rand_generator.choice(np.arange(len(self.buffer)), size=self.minibatch_size)
+        return [self.buffer[idx] for idx in ids]
 
     def size(self):
         return len(self.buffer)
