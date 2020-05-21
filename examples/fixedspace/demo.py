@@ -1,9 +1,8 @@
-import os
-from os.path import dirname,realpath
+from os.path import dirname, realpath
+
 import numpy as np
 
 from examples.fixedspace.fixedspaceenvironment import FixedSpaced
-from reinforcement_learning.agent.base_agent import LearningType
 from reinforcement_learning.experiment.run_experiment import run_experiment
 
 environment = FixedSpaced(4)
@@ -11,9 +10,11 @@ num_episodes = 5000
 
 agent_info_list = [{'start_loc': (1, 1), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
                    , {'start_loc': (1, 4), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
+                   , {'start_loc': (4, 1), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
+                   , {'start_loc': (4, 4), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
                    ]
 
-chosen_types = {'learning_type': LearningType.Online,
+chosen_types = {'learning_type': 'online',
                 'agent_names': ['simple'],
                 'algorithm_names': ['sarsa', 'sarsa_lambda', 'delayed_sarsa']}
 

@@ -10,6 +10,7 @@ from reinforcement_learning.agent.base_agent import LearningType
 def run(run_info=None):
     if run_info is None:
         run_info = {}
+
     lines_to_write = []
     agents = run_info['agents']
 
@@ -19,11 +20,16 @@ def run(run_info=None):
     environment = run_info['environment']
 
     output_dir = run_info['output_dir']
-    dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_run_dir = join(output_dir, dt_str)
 
-    if not isdir(output_run_dir):
-        mkdir(output_run_dir)
+    output_dir = join(output_dir, 'out')
+    if not isdir(output_dir):
+        mkdir(output_dir)
+
+    ml_data_dir = join(output_dir, 'ml_data')
+    if not isdir(ml_data_dir):
+        mkdir(ml_data_dir)
+
+    dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     policy_name = run_info['policy_name']
     policy_args = run_info['policy_args']
@@ -70,7 +76,7 @@ def run(run_info=None):
         'Adam Optimizer:\nLearning Rate: {0}\nBeta M: {1}\nBeta W:{2}\nEpsilon:{3}\n\n'.format(learning_rate, beta_m,
                                                                                                beta_v, epsilon))
     for agent in agents:
-        agent_dir = join(output_run_dir, 'agent_{0}'.format(agent.agent_id))
+        agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
         if not isdir(agent_dir):
             mkdir(agent_dir)
         agent.network_init(network_type, num_hidden_units, random_seed)
@@ -99,15 +105,13 @@ def run(run_info=None):
         diff = end - start
         runtimes[episode] = diff.seconds
 
-        print('Completed episode {0}. Time taken: {1} seconds, Number of steps: {2}'.format(episode, runtimes[episode],
-                                                                                          timesteps[episode]))
         lines_to_write.append(
-            'Completed episode {0}. Time taken: {1} seconds, Number of steps: {2}'.format(episode, runtimes[episode],
+            'Completed episode {0}. Time taken: {1} seconds, Number of steps: {2}\n'.format(episode+1, runtimes[episode],
                                                                                           timesteps[episode]))
 
         for agent in environment.agents:
-            agent_dir = join(output_run_dir, 'agent_{0}'.format(agent.agent_id))
-            agent.historical_data.to_csv(join(agent_dir, 'epsiode_{0}.csv'.format(episode + 1)), index=False)
+            agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
+            agent.historical_data.to_csv(join(agent_dir, 'log{0}.csv'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))), index=False)
 
     agents = environment.agents
 
@@ -124,13 +128,13 @@ def run(run_info=None):
         lines_to_write.append('Number of Update Steps: {0}\n'.format(agent.n_update_steps))
         lines_to_write.append('Total Reward: {0}\n'.format(agent.get_total_reward()))
         positive_actions = agent.get_all_positive_actions()
-        for state in agent.algorithm.state_space:
+        for state in agent.state_space:
             if state in positive_actions:
                 lines_to_write.append('State {0}: {1}\n'.format(state, positive_actions[state]))
             else:
                 lines_to_write.append('State {0}\n'.format(state))
         lines_to_write.append('\n')
 
-    run_output_file = open(join(output_run_dir, 'out.txt', 'w'))
+    run_output_file = open(join(output_dir, 'log{0}.txt'.format(dt_str)), 'w')
     run_output_file.writelines(lines_to_write)
     run_output_file.close()

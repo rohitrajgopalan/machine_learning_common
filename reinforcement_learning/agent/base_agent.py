@@ -86,6 +86,8 @@ class Agent:
             self.state_space.append(s)
 
     def initialize_state(self, state_dim, start_loc):
+        if len(self.state_space) > 0:
+            self.state_space = []
         start_loc_list = list(start_loc)
         if state_dim > len(start_loc_list):
             for _ in range(len(start_loc_list), state_dim):
@@ -94,7 +96,7 @@ class Agent:
         else:
             self.initial_state = tuple(start_loc)
         self.current_state = self.initial_state
-        self.state_space.append(self.current_state)
+        self.add_to_state_space(self.current_state)
 
     def reset(self):
         self.current_state = self.initial_state
@@ -112,6 +114,7 @@ class Agent:
         self.algorithm.policy.update(r, self.initial_action)
         self.active = not terminal
 
+        self.add_to_state_space(self.current_state)
         self.add_to_state_space(self.next_state)
 
         current_q = deepcopy(self.network)
