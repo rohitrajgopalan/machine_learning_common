@@ -5,7 +5,7 @@ import numpy as np
 from examples.cliffwalking.cliffwalking import CliffWalkingEnvironment
 from reinforcement_learning.experiment.run_experiment import run_experiment
 
-environment = CliffWalkingEnvironment(4, 4)
+environment = CliffWalkingEnvironment(2,6)
 num_episodes = 5000
 
 start_loc = (1, 1)
@@ -13,7 +13,8 @@ agent_info = {'start_loc': start_loc, 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']
 agent_info_list = [agent_info]
 
 chosen_types = {'learning_type': 'online',
-                'agent_names': ['simple'],
+                'agent_names': 'simple',
+                'network_type': 'single',
                 'algorithm_names': ['sarsa', 'sarsa_lambda']}
 
 policy_hyperparameters = {'seed': 0,

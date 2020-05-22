@@ -15,7 +15,7 @@ agent_info_list = [{'start_loc': (1, 1), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGH
                    ]
 
 chosen_types = {'learning_type': 'online',
-                'agent_names': ['simple'],
+                'agent_names': 'simple',
                 'algorithm_names': ['sarsa', 'sarsa_lambda', 'delayed_sarsa']}
 
 policy_hyperparameters = {'seed': 0,

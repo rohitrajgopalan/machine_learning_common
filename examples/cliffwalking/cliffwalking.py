@@ -38,5 +38,5 @@ class CliffWalkingEnvironment(Environment):
             reward = -100
             agent.next_state = agent.initial_state
         elif agent.current_state == agent.next_state:
-            reward = 0
+            reward = -2
         return reward, terminal

@@ -1,6 +1,3 @@
-import numpy as np
-
-
 class Algorithm:
     discount_factor = 0.0
     policy = None
@@ -14,12 +11,14 @@ class Algorithm:
         for key in args:
             setattr(self, key, args[key])
 
-    def add_to_e_trace(self, s):
+    def add_state(self, s, network_type):
+        if s is None:
+            pass
         if s not in self.e_traces:
-            self.e_traces.update({s : [0]*self.policy.num_actions})
+            self.e_traces.update({s: [0] * self.policy.num_actions})
 
     def calculate_target_error(self, s, a, s_, r, terminal, network, current_q):
-        self.add_to_e_trace(s)
+        self.add_state(s, network.network_type)
         coin_side = network.determine_coin_side()
         if self.enable_e_traces:
             self.e_traces[s][a] += 1

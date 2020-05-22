@@ -47,16 +47,22 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
     chosen_network_types = []
 
     if 'agent_names' in chosen_types:
-        if type(chosen_types['agent_names']) == str and chosen_types['agent_names'] == 'all':
-            chosen_agent_names = all_agent_names
-        elif type(chosen_types['agent_names']) == list and len(chosen_types['agent_names']) > 0:
+        if type(chosen_types['agent_names']) == str:
+            if chosen_types['agent_names'] == 'all':
+                chosen_agent_names = all_agent_names
+            else:
+                chosen_agent_names = [chosen_types['agent_names']]
+        elif type(chosen_types['agent_names']) == list and len(chosen_types['agent_names']) > 1:
             chosen_agent_names = chosen_types['agent_names']
     else:
         chosen_agent_names = all_agent_names
 
     if 'policies' in chosen_types:
-        if type(chosen_types['policies']) == str and chosen_types['policies'] == 'all':
-            chosen_policies = all_policies
+        if type(chosen_types['policies']) == str:
+            if chosen_types['policies'] == 'all':
+                chosen_policies = all_policies
+            else:
+                chosen_policies = [chosen_types['policies']]
         elif type(chosen_types['policies']) == list and len(chosen_types['policies']) > 0:
             chosen_policies = chosen_types['policies']
     else:

@@ -30,6 +30,7 @@ class FixedSpaced(Environment):
                 else:
                     reward = 1
             else:
+                agent.next_state = agent.current_state
                 reward = -10 * num_collisions
         return reward, terminal
 

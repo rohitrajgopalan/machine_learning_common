@@ -58,14 +58,6 @@ class Agent:
             else:
                 setattr(self, key, args[key])
 
-        if state_dim == 1:
-            self.historical_data_columns.append('STATE')
-        else:
-            for i in range(1, state_dim + 1):
-                self.historical_data_columns.append('STATE_VAR{0}'.format(i))
-        self.historical_data_columns.append('INITIAL_ACTION')
-        self.historical_data_columns.append('REWARD')
-
         self.initialize_state(state_dim, start_loc)
         self.reset()
 
@@ -86,8 +78,13 @@ class Agent:
             self.state_space.append(s)
 
     def initialize_state(self, state_dim, start_loc):
+        # In an multi-agent setting, data from other agents might come and populate here which will
+        # break the code and give unexpected results.
+        # So a pre-clean-up is necessary
         if len(self.state_space) > 0:
             self.state_space = []
+        if len(self.historical_data_columns) > 0:
+            self.historical_data_columns = []
         start_loc_list = list(start_loc)
         if state_dim > len(start_loc_list):
             for _ in range(len(start_loc_list), state_dim):
@@ -97,6 +94,18 @@ class Agent:
             self.initial_state = tuple(start_loc)
         self.current_state = self.initial_state
         self.add_to_state_space(self.current_state)
+
+        if state_dim == 1:
+            self.historical_data_columns.append('STATE')
+        else:
+            for i in range(1, state_dim + 1):
+                self.historical_data_columns.append('STATE_VAR{0}'.format(i))
+        self.historical_data_columns.append('INITIAL_ACTION')
+        self.historical_data_columns.append('REWARD')
+        self.historical_data_columns.append('GAMMA')
+        self.historical_data_columns.append('POLICY')
+        self.historical_data_columns.append('HYPERPARAMETER')
+        self.historical_data_columns.append('TARGET_VALUE')
 
     def reset(self):
         self.current_state = self.initial_state
@@ -128,21 +137,36 @@ class Agent:
             self.optimize_network(self.current_state, self.initial_action, self.next_state, r, int(terminal), current_q)
 
         # TODO: Add data to supervised learning
-        self.add_to_supervised_learning(r)
+        self.add_to_supervised_learning(r, terminal)
 
         if self.active:
             self.current_state = self.next_state
 
-    def add_to_supervised_learning(self, r):
+    def add_to_supervised_learning(self, r, terminal):
         new_data = {}
-        l = list(self.current_state)
-        if len(l) == 1:
+        if len(list(self.current_state)) == 1:
             new_data.update({'STATE': self.current_state})
         else:
-            for i, value in enumerate(l):
+            for i, value in enumerate(list(self.current_state)):
                 new_data.update({'STATE_VAR{0}'.format(i + 1): value})
 
-        new_data.update({'INITIAL_ACTION': self.initial_action, 'REWARD': r})
+        new_data.update({'INITIAL_ACTION': self.initial_action,
+                         'REWARD': r,
+                         'GAMMA': self.algorithm.discount_factor,
+                         'POLICY': self.algorithm.policy.__class__.__name__,
+                         'TARGET_VALUE': self.algorithm.get_target_value(self.initial_action,
+                                                                         self.next_state, r,
+                                                                         terminal, deepcopy(self.network),
+                                                                         self.network.determine_coin_side())})
+        hyperparameter_value = 0
+        if new_data['POLICY'] == 'Softmax':
+            hyperparameter_value = getattr(self.algorithm.policy, 'tau')
+        elif new_data['POLICY'] == 'UCB':
+            hyperparameter_value = getattr(self.algorithm.policy, 'ucb_c')
+        elif new_data['POLICY'] == 'EpsilonGreedy':
+            hyperparameter_value = getattr(self.algorithm.policy, 'epsilon')
+
+        new_data.update({'HYPERPARAMETER': hyperparameter_value})
         self.historical_data = self.historical_data.append(new_data, ignore_index=True)
 
     def choose_next_action(self):
