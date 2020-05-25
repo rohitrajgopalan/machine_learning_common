@@ -6,17 +6,16 @@ from examples.fixedspace.fixedspaceenvironment import FixedSpaced
 from reinforcement_learning.experiment.run_experiment import run_experiment
 
 environment = FixedSpaced(4)
-num_episodes = 5000
+num_episodes = 1000
 
-agent_info_list = [{'start_loc': (1, 1), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
-                   , {'start_loc': (1, 4), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
-                   , {'start_loc': (4, 1), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
-                   , {'start_loc': (4, 4), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
+agent_info_list = [{'initial_state': (1, 1), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
+                   , {'initial_state': (1, 4), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
+                   , {'initial_state': (4, 1), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
+                   , {'initial_state': (4, 4), 'actions': ['UP', 'DOWN', 'LEFT', 'RIGHT']}
                    ]
 
 chosen_types = {'learning_type': 'online',
-                'agent_names': 'simple',
-                'algorithm_names': ['sarsa', 'sarsa_lambda', 'delayed_sarsa']}
+                'algorithm_names': ['sarsa', 'sarsa_lambda']}
 
 policy_hyperparameters = {'seed': 0,
                           'taus': [0.001, 0.01, 0.1, 1.0],

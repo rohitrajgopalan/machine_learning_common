@@ -1,12 +1,12 @@
 from reinforcement_learning.agent.base_agent import LearningType
-from reinforcement_learning.agent.choose_agent import choose_agent
+from reinforcement_learning.agent.base_agent import Agent
 from reinforcement_learning.algorithm.choose_algorithm import choose_algorithm
 from reinforcement_learning.experiment.run import run
 from reinforcement_learning.network.actionvaluenetwork import NetworkType
 from reinforcement_learning.policy.choose_policy import choose_policy
 
 
-def generate_agent(agent_id, agent_name, agent_info, state_dim, learning_type, policy_name, policy_args, algorithm_name,
+def generate_agent(agent_id, agent_info, state_dim, learning_type, policy_name, policy_args, algorithm_name,
                    algorithm_args):
     policy_args.update({'num_actions': len(agent_info['actions'])})
     policy = choose_policy(policy_name, policy_args)
@@ -14,7 +14,7 @@ def generate_agent(agent_id, agent_name, agent_info, state_dim, learning_type, p
     algorithm = choose_algorithm(algorithm_name, algorithm_args)
     agent_info.update(
         {'state_dim': state_dim, 'learning_type': learning_type, 'algorithm': algorithm, 'agent_id': agent_id})
-    return choose_agent(agent_name, agent_info)
+    return Agent(agent_info)
 
 
 def run_experiment(output_dir, environment, num_episodes, agents_info_list, chosen_types, policy_hyperparameters,
@@ -40,23 +40,6 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
 
     chosen_policies = []
     all_policies = ['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb']
-
-    chosen_agent_names = []
-    all_agent_names = ['simple', 'dyna', 'dyna_plus', 'prioritized_sweeping']
-
-    chosen_network_types = []
-
-    if 'agent_names' in chosen_types:
-        if type(chosen_types['agent_names']) == str:
-            if chosen_types['agent_names'] == 'all':
-                chosen_agent_names = all_agent_names
-            else:
-                chosen_agent_names = [chosen_types['agent_names']]
-        elif type(chosen_types['agent_names']) == list and len(chosen_types['agent_names']) > 1:
-            chosen_agent_names = chosen_types['agent_names']
-    else:
-        chosen_agent_names = all_agent_names
-
     if 'policies' in chosen_types:
         if type(chosen_types['policies']) == str:
             if chosen_types['policies'] == 'all':
@@ -74,9 +57,11 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
         elif chosen_types['enable_e_traces'] == 'no':
             chosen_e_traces_flags = [False]
         else:
-            chosen_e_traces_flags = [True,False]
+            chosen_e_traces_flags = [True, False]
     else:
         chosen_e_traces_flags = [True, False]
+
+    chosen_network_types = []
 
     if 'network_types' in chosen_types:
         if chosen_types['network_types'] == 'all':
@@ -116,26 +101,25 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
                         algorithm_args['discount_factor'] = discount_factor
                         for lambda_val in algorithm_hyperparameters['lambdas']:
                             algorithm_args['lambda_val'] = lambda_val
+
                             for enable_e_traces in chosen_e_traces_flags:
                                 algorithm_args['enable_e_traces'] = enable_e_traces
+
                                 run_info['algorithm_args'] = algorithm_args
 
-                                for agent_name in chosen_agent_names:
-                                    run_info['agent_name'] = agent_name
-                                    agents = []
-                                    for i in range(len(agents_info_list)):
-                                        agents.append(generate_agent(i + 1, agent_name, agents_info_list[i],
-                                                                     environment.required_state_dim,
-                                                                     chosen_types['learning_type'], policy_name,
-                                                                     policy_args, algorithm_name, algorithm_args))
+                                agents = []
+                                for i in range(len(agents_info_list)):
+                                    agents.append(generate_agent(i + 1, agents_info_list[i],
+                                                                 environment.required_state_dim,
+                                                                 chosen_types['learning_type'], policy_name,
+                                                                 policy_args, algorithm_name, algorithm_args))
 
-                                    run_info['agents'] = agents
+                                run_info['agents'] = agents
+                                for network_type in chosen_network_types:
+                                    run_info['network_type'] = network_type
 
-                                    for network_type in chosen_network_types:
-                                        run_info['network_type'] = network_type
+                                    if chosen_learning_type == LearningType.Replay:
+                                        for key in replay_buffer_info:
+                                            run_info[key] = replay_buffer_info[key]
 
-                                        if chosen_learning_type == LearningType.Replay:
-                                            for key in replay_buffer_info:
-                                                run_info[key] = replay_buffer_info[key]
-
-                                        run(run_info)
+                                    run(run_info)

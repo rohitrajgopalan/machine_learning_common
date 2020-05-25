@@ -14,10 +14,13 @@ class Algorithm:
     def add_state(self, s, network_type):
         if s is None:
             pass
+        s = tuple(s)
         if s not in self.e_traces:
             self.e_traces.update({s: [0] * self.policy.num_actions})
 
     def calculate_target_error(self, s, a, s_, r, terminal, network, current_q):
+        s = tuple(s)
+        s_ = tuple(s_)
         self.add_state(s, network.network_type)
         coin_side = network.determine_coin_side()
         if self.enable_e_traces:
@@ -35,12 +38,12 @@ class Algorithm:
         return target_error, coin_side
 
     def get_target_error(self, s, a, s_, r, terminal, network, current_q):
-        return 0, 0
+        return self.calculate_target_error(s, a, s_, r, terminal, network, current_q)
 
-    def get_target_value(self, a, s_, r, terminal, current_q, coin_side):
+    def get_target_value(self, a, s_, r, active, current_q, coin_side):
         a_ = self.get_potential_action(current_q, coin_side, s_, a)
         return r + (self.discount_factor * self.get_scalar(s_, a_, current_q.network_type.value - 1 - coin_side,
-                                                           current_q) * (1 - terminal))
+                                                           current_q) * active)
 
     def get_potential_action(self, current_q, coin_side, s, a):
         return -1

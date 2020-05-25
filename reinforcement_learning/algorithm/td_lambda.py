@@ -13,7 +13,7 @@ class TDLambdaAlgorithm(TDAlgorithm):
 
 class SARSALambda(TDLambdaAlgorithm):
     def get_potential_action(self, current_q, coin_side, s_, a):
-        return self.policy.choose_action(current_q.get_action_values_with_weights(s_))
+        return self.policy.choose_action(current_q.get_action_values_with_weights(s_, coin_side))
 
 
 class QLambda(TDLambdaAlgorithm):

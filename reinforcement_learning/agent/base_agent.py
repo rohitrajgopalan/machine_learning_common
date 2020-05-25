@@ -38,27 +38,51 @@ class Agent:
     optimizer = None
     network = None
 
+    state_dim = 0
+
     state_space = []
 
     historical_data = None
     historical_data_columns = []
 
     def __init__(self, args=None):
+        # In an multi-agent setting, data from other agents might come and populate here which will
+        # break the code and give unexpected results.
+        # So a pre-clean-up is necessary
+        if len(self.state_space) > 0:
+            self.state_space = []
+        if len(self.historical_data_columns) > 0:
+            self.historical_data_columns = []
+
         if args is None:
             args = {}
-        start_loc = None
-        state_dim = 0
         for key in args:
             if 'random_seed' in key:
                 setattr(self, key[:key.index('random_seed')] + 'rand_generator', np.random.RandomState(args[key]))
-            elif key == 'state_dim':
-                state_dim = args['state_dim']
-            elif key == 'start_loc':
-                start_loc = args['start_loc']
             else:
                 setattr(self, key, args[key])
 
-        self.initialize_state(state_dim, start_loc)
+        start_loc_list = list(self.initial_state)
+        if self.state_dim > len(start_loc_list):
+            for _ in range(len(start_loc_list), self.state_dim):
+                start_loc_list.append(0)
+        self.initial_state = tuple(start_loc_list)
+        self.current_state = self.initial_state
+        self.add_to_state_space(self.current_state)
+
+        if self.state_dim == 1:
+            self.historical_data_columns.append('STATE')
+        else:
+            for i in range(1, self.state_dim + 1):
+                self.historical_data_columns.append('STATE_VAR{0}'.format(i))
+        self.historical_data_columns.append('INITIAL_ACTION')
+        self.historical_data_columns.append('REWARD')
+        self.historical_data_columns.append('ALGORITHM')
+        self.historical_data_columns.append('GAMMA')
+        self.historical_data_columns.append('POLICY')
+        self.historical_data_columns.append('HYPERPARAMETER')
+        self.historical_data_columns.append('TARGET_VALUE')
+
         self.reset()
 
     def network_init(self, network_type, num_hidden_units, random_seed):
@@ -74,38 +98,9 @@ class Agent:
     def add_to_state_space(self, s):
         if s is None:
             pass
+        s = tuple(s)
         if s not in self.state_space:
             self.state_space.append(s)
-
-    def initialize_state(self, state_dim, start_loc):
-        # In an multi-agent setting, data from other agents might come and populate here which will
-        # break the code and give unexpected results.
-        # So a pre-clean-up is necessary
-        if len(self.state_space) > 0:
-            self.state_space = []
-        if len(self.historical_data_columns) > 0:
-            self.historical_data_columns = []
-        start_loc_list = list(start_loc)
-        if state_dim > len(start_loc_list):
-            for _ in range(len(start_loc_list), state_dim):
-                start_loc_list.append(0)
-            self.initial_state = tuple(start_loc_list)
-        else:
-            self.initial_state = tuple(start_loc)
-        self.current_state = self.initial_state
-        self.add_to_state_space(self.current_state)
-
-        if state_dim == 1:
-            self.historical_data_columns.append('STATE')
-        else:
-            for i in range(1, state_dim + 1):
-                self.historical_data_columns.append('STATE_VAR{0}'.format(i))
-        self.historical_data_columns.append('INITIAL_ACTION')
-        self.historical_data_columns.append('REWARD')
-        self.historical_data_columns.append('GAMMA')
-        self.historical_data_columns.append('POLICY')
-        self.historical_data_columns.append('HYPERPARAMETER')
-        self.historical_data_columns.append('TARGET_VALUE')
 
     def reset(self):
         self.current_state = self.initial_state
@@ -116,47 +111,47 @@ class Agent:
     def optimizer_init(self, learning_rate, beta_m, beta_v, epsilon):
         self.optimizer = Adam(self.network.layer_sizes, learning_rate, beta_m, beta_v, epsilon)
 
-    def step(self, r, terminal=False):
+    def step(self, r):
         self.n_update_steps += 1
         if not self.initial_action == self.actual_action:
             r *= -1
         self.algorithm.policy.update(r, self.initial_action)
-        self.active = not terminal
+
+        # TODO: Add data to supervised learning
+        self.add_to_supervised_learning(r)
 
         self.add_to_state_space(self.current_state)
         self.add_to_state_space(self.next_state)
 
         current_q = deepcopy(self.network)
         if self.learning_type == LearningType.Replay:
-            self.replay_buffer.append(self.current_state, self.initial_action, r, int(terminal), self.next_state)
+            self.replay_buffer.append(self.current_state, self.initial_action, r, 1-int(self.active), self.next_state)
             if self.replay_buffer.size() > self.replay_buffer.minibatch_size:
                 for _ in range(self.num_replay):
                     experiences = self.replay_buffer.sample()
                     self.optimize_network_bulk(experiences, current_q)
         else:
-            self.optimize_network(self.current_state, self.initial_action, self.next_state, r, int(terminal), current_q)
-
-        # TODO: Add data to supervised learning
-        self.add_to_supervised_learning(r, terminal)
+            self.optimize_network(self.current_state, self.initial_action, self.next_state, r, int(self.active), current_q)
 
         if self.active:
             self.current_state = self.next_state
 
-    def add_to_supervised_learning(self, r, terminal):
+    def add_to_supervised_learning(self, r):
         new_data = {}
-        if len(list(self.current_state)) == 1:
-            new_data.update({'STATE': self.current_state})
+        if self.state_dim == 1:
+            new_data.update({'STATE': self.current_state[0]})
         else:
-            for i, value in enumerate(list(self.current_state)):
-                new_data.update({'STATE_VAR{0}'.format(i + 1): value})
+            for i in range(self.state_dim):
+                new_data.update({'STATE_VAR{0}'.format(i + 1): self.current_state[i]})
 
         new_data.update({'INITIAL_ACTION': self.initial_action,
                          'REWARD': r,
+                         'ALGORITHM': self.algorithm.__class__.__name__,
                          'GAMMA': self.algorithm.discount_factor,
                          'POLICY': self.algorithm.policy.__class__.__name__,
                          'TARGET_VALUE': self.algorithm.get_target_value(self.initial_action,
                                                                          self.next_state, r,
-                                                                         terminal, deepcopy(self.network),
+                                                                         int(self.active), deepcopy(self.network),
                                                                          self.network.determine_coin_side())})
         hyperparameter_value = 0
         if new_data['POLICY'] == 'Softmax':
@@ -181,7 +176,7 @@ class Agent:
         delta_mat = np.zeros((0, self.network.num_actions))
         for experience in experiences:
             s, a, r, terminal, s_ = experience
-            delta_vec = self.get_delta_vec(s, a, s_, r, terminal, current_q)
+            delta_vec = self.get_delta_vec(s, a, s_, r, 1-terminal, current_q)
             state_index = self.state_space.index(s)
             if state_index in unique_idx_states_experienced:
                 delta_mat[unique_idx_states_experienced.index(state_index), :] += delta_vec
@@ -192,11 +187,11 @@ class Agent:
         states = np.zeros((len(unique_idx_states_experienced), len(list(self.current_state))))
         for i in range(len(unique_idx_states_experienced)):
             idx = unique_idx_states_experienced[i]
-            states[0] = np.array([self.state_space[idx]])
+            states[i] = np.array([self.state_space[idx]])
         self.update_network_with_delta_mat(states, delta_mat, coin_side)
 
-    def optimize_network(self, s, a, s_, r, terminal, current_q):
-        delta_vec, coin_side = self.get_delta_vec(s, a, s_, r, terminal, current_q)
+    def optimize_network(self, s, a, s_, r, active, current_q):
+        delta_vec, coin_side = self.get_delta_vec(s, a, s_, r, active, current_q)
         delta_mat = np.zeros((1, self.network.num_actions))
         delta_mat[0, :] = delta_vec
 
@@ -214,8 +209,8 @@ class Agent:
 
         self.network.set_weights(weights)
 
-    def get_delta_vec(self, s, a, s_, r, terminal, current_q):
-        target_error, coin_side = self.algorithm.get_target_error(s, a, s_, r, terminal, self.network, current_q)
+    def get_delta_vec(self, s, a, s_, r, active, current_q):
+        target_error, coin_side = self.algorithm.get_target_error(s, a, s_, r, active, self.network, current_q)
         delta_vec = np.zeros(len(self.actions))
         delta_vec[a] = target_error
         return delta_vec, coin_side

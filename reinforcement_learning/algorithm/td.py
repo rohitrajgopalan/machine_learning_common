@@ -9,7 +9,7 @@ class TDAlgorithm(Algorithm):
 
 class SARSA(TDAlgorithm):
     def get_potential_next_action(self, current_q, coin_side, s_, a):
-        return self.policy.choose_action(current_q.get_action_values_with_weights(s_))
+        return self.policy.choose_action(current_q.get_action_values_with_weights(s_, coin_side))
 
 
 class Q(TDAlgorithm):
@@ -19,7 +19,7 @@ class Q(TDAlgorithm):
 
 class ExpectedSARSA(TDAlgorithm):
     def get_scalar(self, s, a, coin_side, network):
-        q_mat = network.get_action_values_with_weights(s, coin_side)
+        q_mat = network.get_action_values(s, coin_side)
         policy_mat = self.policy.derive(q_mat)
         return np.dot(policy_mat, q_mat.T)[0]
 

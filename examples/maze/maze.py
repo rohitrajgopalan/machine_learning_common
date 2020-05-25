@@ -4,11 +4,6 @@ from reinforcement_learning.environment.environment import Environment, RewardTy
 
 
 class MazeEnvironment(Environment):
-    maze_dim = (6, 9)
-    obstacles = [(2, 3), (3, 3), (4, 3), (5, 6), (1, 8), (2, 8), (3, 8)]
-    final_location = (1, 9)
-    start_location = (3, 1)
-
     def __init__(self, maze_dim, obstacles, start_location, final_location):
         super().__init__(RewardType.Immediate, 2)
         self.maze_dim = maze_dim
@@ -19,7 +14,8 @@ class MazeEnvironment(Environment):
     def determine_next_state(self, agent):
         chosen_action = agent.actions[agent.actual_action]
 
-        x, y = agent.current_state
+        x = agent.current_state[0, 0]
+        y = agent.current_state[0, 1]
         if chosen_action == 'UP':
             x = x - 1
         elif chosen_action == 'DOWN':
@@ -28,7 +24,7 @@ class MazeEnvironment(Environment):
             y = y - 1
         elif chosen_action == 'RIGHT':
             y = y + 1
-        agent.next_state = (x, y)
+        agent.next_state = np.array([x, y])
 
     def out_of_bounds(self, row, col):
         return row < 0 or row > self.maze_dim[0] or col < 0 or col > self.maze_dim[1]

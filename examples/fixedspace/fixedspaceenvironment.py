@@ -32,7 +32,9 @@ class FixedSpaced(Environment):
             else:
                 agent.next_state = agent.current_state
                 reward = -10 * num_collisions
-        return reward, terminal
+        if terminal:
+            agent.active = False
+        return reward
 
     def determine_next_state(self, agent):
         chosen_action = agent.actions[agent.actual_action]

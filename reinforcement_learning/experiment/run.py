@@ -14,20 +14,19 @@ def run(run_info=None):
     lines_to_write = []
     agents = run_info['agents']
 
-    agent_name = run_info['agent_name']
     learning_type = run_info['learning_type']
 
     environment = run_info['environment']
 
     output_dir = run_info['output_dir']
 
-    output_dir = join(output_dir, 'out')
-    if not isdir(output_dir):
-        mkdir(output_dir)
-
     ml_data_dir = join(output_dir, 'ml_data')
     if not isdir(ml_data_dir):
         mkdir(ml_data_dir)
+
+    output_dir = join(output_dir, 'out')
+    if not isdir(output_dir):
+        mkdir(output_dir)
 
     dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -47,7 +46,7 @@ def run(run_info=None):
     epsilon = run_info['epsilon']
 
     lines_to_write.append('Number of Agents: {0}\n'.format(len(agents)))
-    lines_to_write.append('For Each Agent\nType: {0}\nLearning Type:{1}\n'.format(agent_name, learning_type.name))
+    lines_to_write.append('For Each Agent\nLearning Type:{0}\n'.format(learning_type.name))
     if learning_type == LearningType.Replay:
         buffer_size = run_info['buffer_size']
         minibatch_size = run_info['minibatch_size']
@@ -96,8 +95,8 @@ def run(run_info=None):
         start = datetime.now()
         t = 0
         while not done:
-            done = environment.step()
             t += 1
+            done = environment.step()
 
         timesteps[episode] = t
 
@@ -127,12 +126,6 @@ def run(run_info=None):
         lines_to_write.append('Agent {0}\n'.format(agent.agent_id))
         lines_to_write.append('Number of Update Steps: {0}\n'.format(agent.n_update_steps))
         lines_to_write.append('Total Reward: {0}\n'.format(agent.get_total_reward()))
-        positive_actions = agent.get_all_positive_actions()
-        for state in agent.state_space:
-            if state in positive_actions:
-                lines_to_write.append('State {0}: {1}\n'.format(state, positive_actions[state]))
-            else:
-                lines_to_write.append('State {0}\n'.format(state))
         lines_to_write.append('\n')
 
     run_output_file = open(join(output_dir, 'log{0}.txt'.format(dt_str)), 'w')

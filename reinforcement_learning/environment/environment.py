@@ -16,7 +16,7 @@ class Environment:
         self.required_state_dim = required_state_dim
 
     def calculate_reward(self, agent):
-        return 0, False
+        return 0
 
     def determine_next_state(self, agent):
         pass
@@ -37,15 +37,15 @@ class Environment:
             agent.choose_next_action()
             self.determine_next_state(agent)
             if self.reward_type == RewardType.Immediate:
-                r, terminal = self.calculate_reward(agent)
-                agent.step(r, terminal)
+                r = self.calculate_reward(agent)
+                agent.step(r)
                 if self.is_complete():
                     return True
 
         if self.reward_type == RewardType.Delayed:
             for agent in active_agents:
-                r, terminal = self.calculate_reward(agent)
-                agent.step(r, terminal)
+                r = self.calculate_reward(agent)
+                agent.step(r)
             return self.is_complete()
         else:
             return False
