@@ -4,7 +4,7 @@ from os.path import join, isdir
 
 import numpy as np
 
-from reinforcement_learning.agent.base_agent import LearningType
+from reinforcement_learning.agent.agent import LearningType
 
 
 def run(run_info=None):
@@ -54,6 +54,8 @@ def run(run_info=None):
         lines_to_write.append(
             'Buffer Size: {0}\nMini-Batch Size: {1}\nNum Replay Steps: {2}\n'.format(buffer_size, minibatch_size,
                                                                                      num_replay))
+    lines_to_write.append('Using Classification to block Negative Actions?: {0}\n'.format(
+        'Yes' if run_info['enable_action_blocking'] else 'No'))
     lines_to_write.append('\n')
     lines_to_write.append('Algorithm:\nName: {0}\n'.format(algorithm_name))
     lines_to_write.append('Policy: {0}'.format(policy_name))
@@ -70,10 +72,12 @@ def run(run_info=None):
         lines_to_write.append('Enable Eligibility Traces: Yes\nLambda:{0}\n'.format(algorithm_args['lambda_val']))
     else:
         lines_to_write.append('Enable Eligibility Traces: No\n')
+    lines_to_write.append('Using Regression to predict Target Value?: {0}\n'.format(
+        'Yes' if algorithm_args['enable_regressor'] else 'No'))
     lines_to_write.append('Network: {0}\n'.format(network_type.name))
     lines_to_write.append(
-        'Adam Optimizer:\nLearning Rate: {0}\nBeta M: {1}\nBeta W:{2}\nEpsilon:{3}\n\n'.format(learning_rate, beta_m,
-                                                                                               beta_v, epsilon))
+        'Adam Optimizer:\nLearning Rate:{0}\nBeta M:{1}\nBeta W:{2}\nEpsilon:{3}\n\n'.format(learning_rate, beta_m,
+                                                                                             beta_v, epsilon))
     for agent in agents:
         agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
         if not isdir(agent_dir):
@@ -83,7 +87,7 @@ def run(run_info=None):
         if learning_type == LearningType.Replay:
             agent.buffer_init(num_replay, buffer_size, minibatch_size, random_seed)
 
-    environment.agents = agents
+    environment.set_agents(agents)
 
     num_episodes = run_info['num_episodes']
     timesteps = np.zeros(num_episodes)
@@ -105,12 +109,15 @@ def run(run_info=None):
         runtimes[episode] = diff.seconds
 
         lines_to_write.append(
-            'Completed episode {0}. Time taken: {1} seconds, Number of steps: {2}\n'.format(episode+1, runtimes[episode],
-                                                                                          timesteps[episode]))
+            'Completed episode {0}. Time taken: {1} seconds, Number of steps: {2}\n'.format(episode + 1,
+                                                                                            runtimes[episode],
+                                                                                            timesteps[episode]))
 
         for agent in environment.agents:
             agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
-            agent.historical_data.to_csv(join(agent_dir, 'log{0}.csv'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))), index=False)
+            agent.historical_data.to_csv(
+                join(agent_dir, 'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode+1)),
+                index=False)
 
     agents = environment.agents
 
@@ -126,8 +133,14 @@ def run(run_info=None):
         lines_to_write.append('Agent {0}\n'.format(agent.agent_id))
         lines_to_write.append('Number of Update Steps: {0}\n'.format(agent.n_update_steps))
         lines_to_write.append('Total Reward: {0}\n'.format(agent.get_total_reward()))
+        lines_to_write.append('Optimal policy as follows:\n')
+        optimal_policy = agent.determine_policy()
+        for state in optimal_policy:
+            lines_to_write.append('{0}: {1}\n'.format(state, optimal_policy[state]))
         lines_to_write.append('\n')
 
     run_output_file = open(join(output_dir, 'log{0}.txt'.format(dt_str)), 'w')
     run_output_file.writelines(lines_to_write)
     run_output_file.close()
+
+    # return agents, timesteps, runtimes

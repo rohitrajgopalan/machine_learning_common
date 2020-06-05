@@ -10,13 +10,6 @@ class NetworkType(enum.Enum):
 
 
 class ActionValueNetwork:
-    num_dim_state = 0
-    num_hidden_units = 0
-    rand_generator = None
-    layer_sizes = None
-    num_actions = 0
-    network_type = None
-
     weights = []
 
     def __init__(self, network_type, state_dim, num_hidden_units, num_actions, random_seed):
@@ -26,15 +19,17 @@ class ActionValueNetwork:
         self.num_actions = num_actions
         self.rand_generator = np.random.RandomState(random_seed)
         self.layer_sizes = np.array([self.num_dim_state, self.num_hidden_units, self.num_actions])
-        self.initialise_weights()
+        self.initialize_weights()
 
-    def initialise_weights(self):
+    def initialize_weights(self):
+        self.weights = []
         for _ in range(self.network_type.value):
-            w = [dict() for _ in range(0, len(self.layer_sizes) - 1)]
-            for i in range(0, len(self.layer_sizes) - 1):
-                w[i]['W'] = self.init_saxe(self.layer_sizes[i], self.layer_sizes[i + 1])
-                w[i]['b'] = np.zeros((1, self.layer_sizes[i + 1]))
-            self.weights.append(w)
+            self.weights.append([{'W': self.init_saxe(self.num_dim_state, self.num_hidden_units), 'b': np.zeros((1, self.num_hidden_units))}, {'W': self.init_saxe(self.num_hidden_units, self.num_actions), 'b': np.zeros((1, self.num_actions))}])
+
+    def add_action(self):
+        self.num_actions += 1
+        self.layer_sizes[2] += 1
+        self.initialize_weights()
 
     # Developing this function to decide which index of weights to use
     def determine_coin_side(self):
@@ -44,17 +39,16 @@ class ActionValueNetwork:
         if s is None:
             return np.zeros((1, self.num_actions))
         if coin_side is None:
-            q_vals = np.zeros((1, self.num_actions))
+            q_vals = np.zeros((self.network_type.value, self.num_actions))
             for i in range(self.network_type.value):
-                q_vals += self.get_action_values_with_weights(s, self.weights[i])
-
-            return q_vals / self.network_type.value
+                q_vals[i] = self.get_action_values_with_weights(s, self.weights[i])
+            return np.mean(q_vals, axis=0).reshape(1, self.num_actions)
         else:
             return self.get_action_values_with_weights(s, self.weights[coin_side])
 
     def get_action_values_with_weights(self, s, weights):
         if s is None:
-            return np.zeros(self.num_actions)
+            return np.zeros((1, self.num_actions))
         """
         Args:
             s (Numpy array): The state.
@@ -68,7 +62,9 @@ class ActionValueNetwork:
 
         w1, b1 = weights[1]['W'], weights[1]['b']
 
-        return np.dot(x, w1) + b1
+        action_values = np.dot(x, w1) + b1
+
+        return action_values.reshape(1, self.num_actions)
 
     def get_target_update(self, s, delta_mat, coin_side):
         return self.get_target_update_with_weights(s, delta_mat, self.weights[coin_side])

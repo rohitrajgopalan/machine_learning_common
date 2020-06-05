@@ -5,6 +5,7 @@ import numpy as np
 class ThompsonSampling(Policy):
     alpha = None
     beta = None
+    min_penalty = -1
 
     def __init__(self, args=None):
         super().__init__(args)
@@ -12,7 +13,7 @@ class ThompsonSampling(Policy):
         self.beta = np.ones(self.num_actions)
 
     def generate_theta(self):
-        return np.random.beta(self.alpha, self.beta)
+        return np.random.beta(self.alpha, self.beta).reshape(1, self.num_actions)
 
     def derive(self, action_values):
         policy_probs = np.zeros(self.num_actions)
@@ -28,7 +29,12 @@ class ThompsonSampling(Policy):
 
     def update(self, action, reward):
         r = 0
-        if reward > -2:
+        if reward > self.min_penalty:
             r = 1
         self.alpha[action] += r
         self.beta[action] += 1 - r
+
+    def add_action(self):
+        super().add_action()
+        self.alpha = np.append(self.alpha, np.ones(1))
+        self.beta = np.append(self.alpha, np.ones(1))

@@ -13,13 +13,20 @@ class Adam:
 
     # Work Required: Yes. Fill in the initialization for self.m and self.v (~4 Lines).
     def __init__(self, layer_sizes, step_size, beta_m, beta_v, epsilon):
-        self.layer_sizes = layer_sizes
 
         # Specify Adam algorithm's hyper parameters
         self.step_size = step_size
         self.beta_m = beta_m
         self.beta_v = beta_v
         self.epsilon = epsilon
+
+        self.update_optimizer(layer_sizes)
+
+        self.beta_m_product = self.beta_m
+        self.beta_v_product = self.beta_v
+
+    def update_optimizer(self, layer_sizes):
+        self.layer_sizes = layer_sizes
 
         # Initialize Adam algorithm's m and v
         self.m = [dict() for _ in range(1, len(self.layer_sizes))]
@@ -33,12 +40,10 @@ class Adam:
             self.v[i]["W"] = np.zeros((self.layer_sizes[i], self.layer_sizes[i + 1]))
             self.v[i]["b"] = np.zeros((1, self.layer_sizes[i + 1]))
 
-        # Notice that to calculate m_hat and v_hat, we use powers of beta_m and beta_v to 
-        # the time step t. We can calculate these powers using an incremental product. At initialization then, 
-        # beta_m_product and beta_v_product should be ...? (Note that timesteps start at 1 and if we were to 
+        # Notice that to calculate m_hat and v_hat, we use powers of beta_m and beta_v to
+        # the time step t. We can calculate these powers using an incremental product. At initialization then,
+        # beta_m_product and beta_v_product should be ...? (Note that timesteps start at 1 and if we were to
         # start from 0, the denominator would be 0.)
-        self.beta_m_product = self.beta_m
-        self.beta_v_product = self.beta_v
 
     def update_weights(self, weights, td_errors_times_gradients):
         """
@@ -54,8 +59,7 @@ class Adam:
                 self.m[i][param] *= self.beta_m
                 self.m[i][param] += (1 - self.beta_m) * td_errors_times_gradients[i][param]
                 self.v[i][param] *= self.beta_v
-                self.v[i][param] += (1 - self.beta_v) * td_errors_times_gradients[i][param] * \
-                                    td_errors_times_gradients[i][param]
+                self.v[i][param] += (1 - self.beta_v) * td_errors_times_gradients[i][param] * td_errors_times_gradients[i][param]
                 m_hat = self.m[i][param] / (1 - self.beta_m_product)
                 v_hat = self.v[i][param] / (1 - self.beta_v_product)
                 weight_update = (self.step_size / (np.sqrt(v_hat) + self.epsilon)) * m_hat

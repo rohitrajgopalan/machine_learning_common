@@ -4,6 +4,7 @@ import numpy as np
 class Policy:
     num_actions = 0
     rand_generator = None
+    min_penalty = -1
 
     def __init__(self, args=None):
         if args is None:
@@ -22,6 +23,9 @@ class Policy:
                 ties.append(i)
         return ties
 
+    def add_action(self):
+        self.num_actions += 1
+
     def argmax(self, action_values):
         ties = self.actions_with_max(action_values)
         return self.rand_generator.choice(ties)
@@ -32,5 +36,5 @@ class Policy:
     def choose_action(self, action_values):
         return 0
 
-    def update(self, reward, action):
+    def update(self, action, reward):
         pass
