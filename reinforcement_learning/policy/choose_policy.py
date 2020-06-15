@@ -3,6 +3,7 @@ from .epsilon_greedy import EpsilonGreedy
 from .thompson_sampling import ThompsonSampling
 from .ucb import UCB
 from .softmax import Softmax
+from .static import StaticPolicy
 
 
 def choose_policy(policy_name, args=None):
@@ -16,5 +17,7 @@ def choose_policy(policy_name, args=None):
         return ThompsonSampling(args)
     elif policy_name == 'ucb':
         return UCB(args)
+    elif policy_name == 'static':
+        return StaticPolicy(args)
     else:
         return Policy(args)

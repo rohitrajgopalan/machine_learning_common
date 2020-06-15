@@ -61,12 +61,15 @@ class Agent:
             self.historical_data_columns = []
 
         self.did_block_action = False
+        actions_csv_file = ''
 
         if args is None:
             args = {}
         for key in args:
             if 'random_seed' in key:
                 setattr(self, key[:key.index('random_seed')] + 'rand_generator', np.random.RandomState(args[key]))
+            elif 'actions_csv_file' in key:
+                actions_csv_file = args[key]
             else:
                 setattr(self, key, args[key])
 
@@ -99,19 +102,26 @@ class Agent:
         self.historical_data_columns.append('TARGET_VALUE')
         self.historical_data_columns.append('BLOCKED?')
 
+        if len(actions_csv_file) > 0:
+            self.load_actions_from_csv(actions_csv_file)
+
         # We want to ensure that all components have the same number of actions
         self.algorithm.num_actions = len(self.actions)
 
         self.reset()
+
+    def network_init(self, network_type, random_seed):
+        self.network = ActionValueNetwork(network_type, self.state_dim, len(self.actions), random_seed)
 
     def network_init(self, network_type, num_hidden_units, random_seed):
         self.network = ActionValueNetwork(network_type, self.state_dim, num_hidden_units,
                                           len(self.actions),
                                           random_seed)
 
-    def buffer_init(self, replay_buffer_size, minibatch_size, random_seed):
+    def buffer_init(self, num_replay, replay_buffer_size, minibatch_size, random_seed):
         if not self.learning_type == LearningType.Replay:
             pass
+        self.num_replay = num_replay
         self.replay_buffer = ReplayBuffer(replay_buffer_size, minibatch_size, random_seed)
 
     def blocker_init(self, csv_dir):
@@ -166,7 +176,7 @@ class Agent:
             self.current_state = self.next_state
 
     def add_to_supervised_learning(self, r):
-        blocked_boolean = 1 if r <= self.algorithm.policy.min_penalty else 0
+        blocked_boolean = 1 if r <= self.algorithm.policy.min_penalty*-1 else 0
         if self.enable_action_blocking:
             self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
         new_data = {}
@@ -186,7 +196,8 @@ class Agent:
 
         new_data.update({'INITIAL_ACTION': self.initial_action,
                          'REWARD': r,
-                         'ALGORITHM': '{0}{1}'.format(self.algorithm.algorithm_name.name, '_LAMBDA' if 'Lambda' in self.algorithm.__class__.__name__ else ''),
+                         'ALGORITHM': '{0}{1}'.format(self.algorithm.algorithm_name.name,
+                                                      '_LAMBDA' if 'Lambda' in self.algorithm.__class__.__name__ else ''),
                          'GAMMA': self.algorithm.discount_factor,
                          'POLICY': self.algorithm.policy.__class__.__name__,
                          'NETWORK_TYPE': self.network.network_type.name,
@@ -200,10 +211,11 @@ class Agent:
 
     def choose_next_action(self):
         action_values = self.network.get_action_values(self.current_state)
-        self.initial_action = self.algorithm.policy.choose_action(action_values)
+        self.initial_action = self.algorithm.policy.choose_action_based_from_values(action_values)
 
-        if self.enable_action_blocking and self.action_blocker.should_we_block_action(self.current_state,
-                                                                                      self.initial_action):
+        if self.enable_action_blocking and self.initial_action is not None and self.action_blocker.should_we_block_action(
+                self.current_state,
+                self.initial_action):
             other_actions = [action for action in range(len(self.actions)) if not action == self.initial_action]
             self.actual_action = None
             for action in other_actions:
@@ -225,7 +237,7 @@ class Agent:
             self.algorithm.policy.add_action()
             self.network.add_action()
             self.optimizer.update_optimizer(self.network.layer_sizes)
-            return len(self.actions)-1
+            return len(self.actions) - 1
 
     def get_action(self, action_type):
         if action_type == ActionType.Initial:
@@ -243,6 +255,39 @@ class Agent:
         else:
             self.initial_action = action
             self.actual_action = action
+
+    def load_actions_from_csv(self, csv_file):
+        df = pd.read_csv(csv_file)
+        actions_from_csv = []
+        for index, row in df.iterrows():
+            if 'TYPE' in df.columns:
+                action_type = row['TYPE']
+                if action_type in ['int', 'float', 'str']:
+                    if action_type == 'int':
+                        action = int(df['ACTION'])
+                    elif action_type == 'float':
+                        action = float(df['ACTION'])
+                    else:
+                        action = str(df['ACTION'])
+                else:
+                    action_as_list = row['ACTION']
+                    for a in action_as_list:
+                        try:
+                            if '.' in a:
+                                a = float(a)
+                            else:
+                                a = int(a)
+                        except TypeError:
+                            continue
+                    if action_type == 'tuple':
+                        action = tuple(action_as_list)
+                    else:
+                        action = np.array([action_as_list])
+            else:
+                action = row['ACTION']
+            actions_from_csv.append(action)
+        if len(actions_from_csv) > 0:
+            self.actions = actions_from_csv
 
     def optimize_network_bulk(self, experiences, current_q):
         coin_side = self.network.determine_coin_side()
@@ -274,8 +319,7 @@ class Agent:
         target_update = self.network.get_target_update(states, delta_mat, coin_side)
         weights = self.network.get_weights()
 
-        for i in range(len(weights)):
-            weights[i] = self.optimizer.update_weights(weights[i], target_update)
+        weights[coin_side] = self.optimizer.update_weights(weights[coin_side], target_update)
 
         self.network.set_weights(weights)
 
@@ -293,12 +337,10 @@ class Agent:
 
         return total_reward
 
-    def determine_policy(self):
+    def determine_final_policy(self):
         final_policy = {}
 
         for state in self.state_space:
-            ties = self.algorithm.policy.actions_with_max(self.network.get_action_values(state))
-            final_policy[state] = [self.actions[tie] for tie in ties]
+            final_policy[state] = self.algorithm.policy.actions_with_max_value(self.network.get_action_values(state))
 
         return final_policy
-

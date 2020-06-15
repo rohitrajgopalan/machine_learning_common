@@ -6,7 +6,7 @@ class Softmax(Policy):
     # tau (float): The temperature parameter scalar.
     tau = 0.0
 
-    def derive(self, action_values):
+    def derive_policy_based_from_values(self, action_values):
         """
         Args:
             action_values (Numpy array): A 2D array of shape (batch_size, num_actions). 
@@ -42,6 +42,6 @@ class Softmax(Policy):
         action_probs = action_probs.squeeze()
         return action_probs
 
-    def choose_action(self, action_values):
-        probs_batch = self.derive(action_values)
+    def choose_action_based_from_values(self, action_values):
+        probs_batch = self.derive_policy_based_from_values(action_values)
         return self.rand_generator.choice(self.num_actions, p=probs_batch.squeeze())

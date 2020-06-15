@@ -94,7 +94,7 @@ class Algorithm:
 
     def get_potential_action(self, current_q, coin_side, s, a):
         if self.algorithm_name == AlgorithmName.SARSA:
-            return self.policy.choose_action(current_q.get_action_values(s, coin_side))
+            return self.policy.choose_action(s, current_q, coin_side)
         elif self.algorithm_name == AlgorithmName.Q:
             return self.policy.argmax(current_q.get_action_values(s, coin_side))
         elif self.algorithm_name == AlgorithmName.MCQL:
@@ -104,8 +104,8 @@ class Algorithm:
 
     def get_scalar(self, s, a, coin_side, network):
         if self.algorithm_name == AlgorithmName.EXPECTED_SARSA:
+            policy_mat = self.policy.derive(s, network, coin_side)
             q_mat = network.get_action_values(s, coin_side)
-            policy_mat = self.policy.derive(q_mat)
             return np.dot(policy_mat, q_mat.T)[0]
         else:
             q_mat = network.get_action_values(s, coin_side)

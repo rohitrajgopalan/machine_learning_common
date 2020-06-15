@@ -37,7 +37,10 @@ def run(run_info=None):
     algorithm_name = run_info['algorithm_name']
 
     network_type = run_info['network_type']
-    num_hidden_units = run_info['num_hidden_units']
+    if 'num_hidden_units' in run_info:
+        num_hidden_units = run_info['num_hidden_units']
+    else:
+        num_hidden_units = None
     random_seed = run_info['random_seed']
 
     learning_rate = run_info['learning_rate']
@@ -82,7 +85,10 @@ def run(run_info=None):
         agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
         if not isdir(agent_dir):
             mkdir(agent_dir)
-        agent.network_init(network_type, num_hidden_units, random_seed)
+        if num_hidden_units is None:
+            agent.network_init(network_type, random_seed)
+        else:
+            agent.network_init(network_type, num_hidden_units, random_seed)
         agent.optimizer_init(learning_rate, beta_m, beta_v, epsilon)
         if learning_type == LearningType.Replay:
             agent.buffer_init(num_replay, buffer_size, minibatch_size, random_seed)
@@ -134,13 +140,13 @@ def run(run_info=None):
         lines_to_write.append('Number of Update Steps: {0}\n'.format(agent.n_update_steps))
         lines_to_write.append('Total Reward: {0}\n'.format(agent.get_total_reward()))
         lines_to_write.append('Optimal policy as follows:\n')
-        optimal_policy = agent.determine_policy()
+        optimal_policy = agent.determine_final_policy()
         for state in optimal_policy:
-            lines_to_write.append('{0}: {1}\n'.format(state, optimal_policy[state]))
+            lines_to_write.append('{0}: {1}\n'.format(state, [agent.actions[a] for a in optimal_policy[state]]))
         lines_to_write.append('\n')
 
     run_output_file = open(join(output_dir, 'log{0}.txt'.format(dt_str)), 'w')
     run_output_file.writelines(lines_to_write)
     run_output_file.close()
 
-    # return agents, timesteps, runtimes
+    return agents, timesteps, runtimes

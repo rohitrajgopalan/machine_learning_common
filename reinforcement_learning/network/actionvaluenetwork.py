@@ -1,4 +1,5 @@
 import enum
+import math
 from copy import deepcopy
 
 import numpy as np
@@ -21,6 +22,14 @@ class ActionValueNetwork:
         self.layer_sizes = np.array([self.num_dim_state, self.num_hidden_units, self.num_actions])
         self.initialize_weights()
 
+    """
+    There is a fundamental approach to automatically determine number of hidden units in a NN
+    See: Masters, Timothy. Practical neural network recipes in C++. Morgan Kaufmann, 1993.
+    and http://www.iitbhu.ac.in/faculty/min/rajesh-rai/NMEICT-Slope/lecture/c14/l1.html
+    """
+    def __init__(self, network_type, state_dim, num_actions, random_seed):
+        self.__init__(network_type, state_dim, int(math.sqrt(state_dim*num_actions)), num_actions, random_seed)
+
     def initialize_weights(self):
         self.weights = []
         for _ in range(self.network_type.value):
@@ -29,6 +38,8 @@ class ActionValueNetwork:
     def add_action(self):
         self.num_actions += 1
         self.layer_sizes[2] += 1
+        self.layer_sizes[1] = int(math.sqrt(self.num_dim_state*self.num_actions))
+        self.num_hidden_units = int(math.sqrt(self.num_dim_state*self.num_actions))
         self.initialize_weights()
 
     # Developing this function to decide which index of weights to use

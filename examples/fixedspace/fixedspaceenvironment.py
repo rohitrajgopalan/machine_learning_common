@@ -6,9 +6,12 @@ class FixedSpaced(Environment):
     final_location = (0, 0)
 
     def __init__(self, square_length):
-        super().__init__(RewardType.Delayed, 2, -10)
+        super().__init__(RewardType.Delayed, 2, 10)
         self.square_length = square_length
-        self.final_location = (square_length / 2, square_length / 2)
+        if square_length % 2 == 0:
+            self.final_location = (int(square_length / 2)-1, int(square_length / 2)-1)
+        else:
+            self.final_location = (int(square_length/2), int(square_length/2))
 
     def calculate_reward(self, agent, state, action_type):
         if agent.get_action(action_type) is None:
@@ -43,11 +46,11 @@ class FixedSpaced(Environment):
             chosen_action = agent.actions[agent.get_action(action_type)]
             x, y = agent.current_state
             if chosen_action == 'UP':
-                x = max(x - 1, 1)
+                x = max(x - 1, 0)
             elif chosen_action == 'DOWN':
-                x = min(x + 1, self.square_length)
+                x = min(x + 1, self.square_length-1)
             elif chosen_action == 'LEFT':
-                y = max(y - 1, 1)
+                y = max(y - 1, 0)
             elif chosen_action == 'RIGHT':
-                y = min(y + 1, self.square_length)
+                y = min(y + 1, self.square_length-1)
             return x, y

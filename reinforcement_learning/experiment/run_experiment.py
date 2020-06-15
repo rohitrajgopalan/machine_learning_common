@@ -1,3 +1,7 @@
+from datetime import datetime
+from os import mkdir
+from os.path import join, isdir
+
 from reinforcement_learning.agent.agent import LearningType
 from reinforcement_learning.agent.agent import Agent
 from reinforcement_learning.algorithm.base_algorithm import AlgorithmName
@@ -5,6 +9,101 @@ from reinforcement_learning.algorithm.choose_algorithm import choose_algorithm
 from reinforcement_learning.experiment.run import run
 from reinforcement_learning.network.actionvaluenetwork import NetworkType
 from reinforcement_learning.policy.choose_policy import choose_policy
+import pandas as pd
+import numpy as np
+
+cols = ['LEARNING_TYPE', 'ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'ALPHA', 'GAMMA',
+        'NETWORK_TYPE', 'ENABLE_E_TRACES', 'LAMBDA', 'ENABLE_ACTION_BLOCKING', 'ENABLE_REGRESSOR', 'AVG_TIMESTEP',
+        'MAX_TIMESTEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
+hyper_parameters_data = None
+agent_cols = ['AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'FINAL_POLICY_FILE', 'ACTIONS_FILE']
+agents_data = None
+action_cols = ['ID', 'ACTION', 'TYPE']
+
+
+def process_run(run_info, agents, runtimes, timesteps):
+    global hyper_parameters_data
+    hyper_parameter_val = 0
+    if run_info['policy_name'] == 'epsilon_greedy':
+        hyper_parameter_val = run_info['policy_args']['epsilon']
+    elif run_info['policy_name'] == 'softmax':
+        hyper_parameter_val = run_info['policy_args']['tau']
+    elif run_info['policy_name'] == 'ucb':
+        hyper_parameter_val = run_info['policy_args']['ucb_c']
+    hyper_parameters_data = hyper_parameters_data.append({'LEARNING_TYPE': run_info['learning_type'].name,
+                                                          'ALGORITHM': run_info['algorithm_name'],
+                                                          'POLICY': run_info['policy_name'],
+                                                          'HYPER_PARAMETER': hyper_parameter_val,
+                                                          'ALPHA': run_info['learning_rate'],
+                                                          'GAMMA': run_info['algorithm_args']['discount_factor'],
+                                                          'NETWORK_TYPE': run_info['network_type'].name,
+                                                          'ENABLE_E_TRACES': 'Yes' if run_info['algorithm_args'][
+                                                              'enable_e_traces'] else 'No',
+                                                          'LAMBDA': run_info['algorithm_args']['lambda_val'] if
+                                                          run_info['algorithm_args'][
+                                                              'enable_e_traces'] else 0.0,
+                                                          'ENABLE_ACTION_BLOCKING': 'Yes' if run_info[
+                                                              'enable_action_blocking'] else 'No',
+                                                          'ENABLE_REGRESSOR': 'Yes' if run_info['algorithm_args'][
+                                                              'enable_regressor'] else 'No',
+                                                          'MAX_RUNTIME': np.max(runtimes),
+                                                          'AVG_RUNTIME': np.mean(runtimes),
+                                                          'MAX_TIMESTEP': np.max(timesteps),
+                                                          'AVG_TIMESTEP': np.mean(timesteps)}, ignore_index=True)
+
+    output_dir = run_info['output_dir']
+    actions_dir = join(output_dir, 'actions')
+    final_policy_dir = join(output_dir, 'final_policy')
+
+    global agents_data
+    for agent in agents:
+        agent_folder = 'agent_{0}'.format(agent.agent_id)
+        agent_actions_dir = join(actions_dir, agent_folder)
+        if not isdir(agent_actions_dir):
+            mkdir(agent_actions_dir)
+
+        file_name = "{0}.csv".format(datetime.now().strftime("%Y%m%d%H%M%S"))
+        agent_action_file = join(agent_actions_dir, file_name)
+        agent_actions = pd.DataFrame(columns=action_cols)
+        for i, action in enumerate(agent.actions):
+            if type(action) == str or type(action) == int:
+                action_as_list = [action]
+            else:
+                action_as_list = list(action)
+            agent_actions = agent_actions.append(
+                {'ID': i + 1, 'ACTION': ';'.join(str(x) for x in action_as_list), 'TYPE': action.__class__.__name__},
+                ignore_index=True)
+        agent_actions.to_csv(agent_action_file, index=False)
+
+        agent_final_policy_dir = join(final_policy_dir, agent_folder)
+        agent_final_policy_file = join(agent_final_policy_dir, file_name)
+        if not isdir(agent_final_policy_dir):
+            mkdir(agent_final_policy_dir)
+        final_policy = agent.determine_final_policy()
+
+        agent_final_policy_cols = []
+        if agent.state_dim == 1:
+            agent_final_policy_cols.append('STATE')
+        else:
+            for i in range(1, agent.state_dim + 1):
+                agent_final_policy_cols.append('STATE_VAR{0}'.format(i))
+        agent_final_policy_cols.append('ACTION')
+        agent_final_policy = pd.DataFrame(columns=agent_final_policy_cols)
+        for state in final_policy:
+            new_data = {}
+            if agent.state_dim == 1:
+                new_data.update({'STATE': state})
+            else:
+                for i in range(agent.state_dim):
+                    new_data.update({'STATE_VAR{0}'.format(i): state[i]})
+            for action in final_policy[state]:
+                new_data.update({'ACTION': action})
+                agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
+        agent_final_policy.to_csv(agent_final_policy_file, index=False)
+
+        agents_data = agents_data.append({'AGENT_ID': agent.agent_id, 'TOTAL_REWARD': agent.get_total_reward(),
+                                          'NUM_UPDATE_STEPS': agent.n_update_steps, 'FINAL_POLICY_FILE': file_name,
+                                          'ACTIONS_FILE': file_name}, ignore_index=True)
 
 
 def generate_agent(agent_id, agent_info, state_dim, learning_type, policy_name, policy_args, algorithm_name,
@@ -71,6 +170,16 @@ def create_boolean_list(chosen_types, key):
 def run_experiment(output_dir, environment, num_episodes, agents_info_list, chosen_types, policy_hyperparameters,
                    algorithm_hyperparameters,
                    replay_buffer_info=None):
+    global hyper_parameters_data
+    hyper_parameters_data = pd.DataFrame(columns=cols)
+    global agents_data
+    agents_data = pd.DataFrame(columns=agent_cols)
+
+    mkdir(join(output_dir, 'ml_data'))
+    mkdir(join(output_dir, 'final_policy'))
+    mkdir(join(output_dir, 'actions'))
+    mkdir(join(output_dir, 'out'))
+
     if replay_buffer_info is None:
         replay_buffer_info = {}
 
@@ -83,7 +192,6 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
                 'num_episodes': num_episodes,
                 'learning_type': chosen_learning_type,
                 'output_dir': output_dir,
-                'num_hidden_units': 2,
                 'random_seed': 0,
                 'beta_m': 0.9,
                 'beta_v': 0.99,
@@ -93,7 +201,8 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
                                              'expected_sarsa_lambda', 'mcql', 'mcq_lambda'], chosen_types,
                                             'algorithm_names')
 
-    chosen_policies = choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb'], chosen_types, 'policies')
+    chosen_policies = choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb'], chosen_types,
+                                          'policies')
     chosen_e_traces_flags = create_boolean_list(chosen_types, 'enable_e_traces')
 
     if 'lambdas' not in algorithm_hyperparameters or len(algorithm_hyperparameters['lambdas']) == 0:
@@ -167,6 +276,8 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
                                                 for key in replay_buffer_info:
                                                     run_info[key] = replay_buffer_info[key]
 
-                                            # agents, timesteps, runtimes = run(run_info)
-                                            run(run_info)
-                                            # populate data with results
+                                            agents, timesteps, runtimes = run(run_info)
+                                            process_run(run_info, agents, timesteps, runtimes)
+
+    hyper_parameters_data.to_csv(join(output_dir, 'run_summary.csv'), index=False)
+    agents_data.to_csv(join(output_dir, 'agents_data.csv'), index=False)

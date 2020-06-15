@@ -15,7 +15,7 @@ class Policy:
             else:
                 setattr(self, key, args[key])
 
-    def actions_with_max(self, action_values):
+    def actions_with_max_value(self, action_values):
         max_value = np.max(action_values)
         ties = []
         for i in range(self.num_actions):
@@ -27,13 +27,19 @@ class Policy:
         self.num_actions += 1
 
     def argmax(self, action_values):
-        ties = self.actions_with_max(action_values)
+        ties = self.actions_with_max_value(action_values)
         return self.rand_generator.choice(ties)
 
-    def derive(self, action_values):
+    def derive(self, state, network=None, coin_side=0):
+        return self.derive_policy_based_from_values(network.get_action_values(state, coin_side))
+
+    def derive_policy_based_from_values(self, action_values):
         return np.zeros(self.num_actions)
 
-    def choose_action(self, action_values):
+    def choose_action(self, state, network=None, coin_side=0):
+        return self.choose_action_based_from_values(network.get_action_values(state, coin_side))
+
+    def choose_action_based_from_values(self, action_values):
         return 0
 
     def update(self, action, reward):
