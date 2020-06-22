@@ -1,5 +1,6 @@
-from .base_policy import Policy
 import numpy as np
+
+from .base_policy import Policy
 
 
 class Softmax(Policy):

@@ -2,18 +2,21 @@ from datetime import datetime
 from os import mkdir
 from os.path import join, isdir
 
-from reinforcement_learning.agent.agent import LearningType
+import numpy as np
+import pandas as pd
+
 from reinforcement_learning.agent.agent import Agent
+from reinforcement_learning.agent.agent import LearningType
 from reinforcement_learning.algorithm.base_algorithm import AlgorithmName
 from reinforcement_learning.algorithm.choose_algorithm import choose_algorithm
 from reinforcement_learning.experiment.run import run
-from reinforcement_learning.network.actionvaluenetwork import NetworkType, NetworkInitializationType, NetworkActivationFunction
+from reinforcement_learning.network.actionvaluenetwork import NetworkType, NetworkInitializationType, \
+    NetworkActivationFunction
 from reinforcement_learning.policy.choose_policy import choose_policy
-import pandas as pd
-import numpy as np
 
 cols = ['LEARNING_TYPE', 'ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'ALPHA', 'GAMMA',
-        'NETWORK_TYPE', 'NETWORK_INITIALIZER', 'ACTIVATION_FUNCTION', 'NETWORK_ALPHA', 'ENABLE_E_TRACES', 'LAMBDA', 'ENABLE_ACTION_BLOCKING', 'ENABLE_REGRESSOR', 'AVG_TIMESTEP',
+        'NETWORK_TYPE', 'NETWORK_INITIALIZER', 'ACTIVATION_FUNCTION', 'NETWORK_ALPHA', 'ENABLE_E_TRACES', 'LAMBDA',
+        'ENABLE_ACTION_BLOCKING', 'ENABLE_REGRESSOR', 'AVG_TIMESTEP',
         'MAX_TIMESTEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
 hyper_parameters_data = None
 agent_cols = ['AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'FINAL_POLICY_FILE', 'ACTIONS_FILE']
@@ -237,7 +240,8 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
     chosen_network_types = choose_from_enums(NetworkType.all(), network_hyperparameters, 'network_types')
     chosen_network_initializers = choose_from_enums(NetworkInitializationType.all(), network_hyperparameters,
                                                     'network_initializers')
-    chosen_activation_functions = choose_from_enums(NetworkActivationFunction.all(), network_hyperparameters, 'activation_functions')
+    chosen_activation_functions = choose_from_enums(NetworkActivationFunction.all(), network_hyperparameters,
+                                                    'activation_functions')
     chosen_action_blockers = create_boolean_list(chosen_types, 'enable_action_blocking')
     chosen_enable_regressors = create_boolean_list(chosen_types, 'enable_regressors')
 

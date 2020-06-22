@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from reinforcement_learning.policy.base_policy import Policy
 
@@ -46,7 +46,7 @@ class StaticPolicy(Policy):
         actions_to_take = self.policy_table[state]
         for action in range(self.num_actions):
             if action in actions_to_take:
-                policy_probs[action] = 1/len(actions_to_take)
+                policy_probs[action] = 1 / len(actions_to_take)
         return policy_probs
 
     def choose_action(self, state, network=None, coin_side=0):

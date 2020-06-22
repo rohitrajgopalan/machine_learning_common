@@ -59,7 +59,8 @@ class Adam:
                 self.m[i][param] *= self.beta_m
                 self.m[i][param] += (1 - self.beta_m) * td_errors_times_gradients[i][param]
                 self.v[i][param] *= self.beta_v
-                self.v[i][param] += (1 - self.beta_v) * td_errors_times_gradients[i][param] * td_errors_times_gradients[i][param]
+                self.v[i][param] += (1 - self.beta_v) * td_errors_times_gradients[i][param] * \
+                                    td_errors_times_gradients[i][param]
                 m_hat = self.m[i][param] / (1 - self.beta_m_product)
                 v_hat = self.v[i][param] / (1 - self.beta_v_product)
                 weight_update = (self.step_size / (np.sqrt(v_hat) + self.epsilon)) * m_hat

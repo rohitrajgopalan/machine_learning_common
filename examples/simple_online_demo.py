@@ -20,8 +20,8 @@ def run_demo(environment, agent_info_list, output_dir):
                                 'lambdas': [1.0]}
 
     network_hyperparameters = {'network_types': 'single',
-                                'network_initializers': 'saxe',
-                                'activation_function': 'relu'}
+                               'network_initializers': 'saxe',
+                               'activation_function': 'relu'}
 
     run_experiment(output_dir, environment, num_episodes, agent_info_list, chosen_types,
                    policy_hyperparameters, algorithm_hyperparamters, network_hyperparameters)

@@ -1,9 +1,9 @@
 from .base_policy import Policy
 from .epsilon_greedy import EpsilonGreedy
-from .thompson_sampling import ThompsonSampling
-from .ucb import UCB
 from .softmax import Softmax
 from .static import StaticPolicy
+from .thompson_sampling import ThompsonSampling
+from .ucb import UCB
 
 
 def choose_policy(policy_name, args=None):

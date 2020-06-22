@@ -1,7 +1,10 @@
 import enum
+
 import numpy as np
 import pandas as pd
-from supervised_learning.common import select_best_regressor, select_best_classifier, randomly_select_classifier, randomly_select_regressor
+
+from supervised_learning.common import select_best_regressor, select_best_classifier, randomly_select_classifier, \
+    randomly_select_regressor
 
 
 class MethodType(enum.Enum):
@@ -54,7 +57,7 @@ class SupervisedLearningHelper:
         if self.state_dim == 1:
             new_data.update({'STATE': state})
         else:
-            for i in range(1, self.state_dim+1):
+            for i in range(1, self.state_dim + 1):
                 new_data.update({'STATE_VAR{0}'.format(i): state[i]})
         self.historical_data = self.historical_data.append(new_data, ignore_index=True)
         x = self.historical_data[self.features]
@@ -69,4 +72,3 @@ class SupervisedLearningHelper:
         input_x.append(action)
         x = np.array([input_x])
         return self.method.predict(x)
-

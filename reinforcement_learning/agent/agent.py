@@ -1,8 +1,8 @@
+import enum
 from copy import deepcopy
 
-import pandas as pd
 import numpy as np
-import enum
+import pandas as pd
 
 from reinforcement_learning.environment.environment import ActionType
 from reinforcement_learning.network.actionvaluenetwork import ActionValueNetwork
@@ -111,10 +111,12 @@ class Agent:
         self.reset()
 
     def network_init(self, network_type, initializer_type, activation_function, alpha, random_seed):
-        self.network = ActionValueNetwork(network_type, initializer_type, activation_function, alpha, self.state_dim, len(self.actions), random_seed)
+        self.network = ActionValueNetwork(network_type, initializer_type, activation_function, alpha, self.state_dim,
+                                          len(self.actions), random_seed)
 
     def network_init(self, network_type, initializer_type, activation_function, alpha, num_hidden_units, random_seed):
-        self.network = ActionValueNetwork(network_type, initializer_type, activation_function, alpha, self.state_dim, num_hidden_units,
+        self.network = ActionValueNetwork(network_type, initializer_type, activation_function, alpha, self.state_dim,
+                                          num_hidden_units,
                                           len(self.actions),
                                           random_seed)
 
@@ -176,7 +178,7 @@ class Agent:
             self.current_state = self.next_state
 
     def add_to_supervised_learning(self, r):
-        blocked_boolean = 1 if r <= self.algorithm.policy.min_penalty*-1 else 0
+        blocked_boolean = 1 if r <= self.algorithm.policy.min_penalty * -1 else 0
         if self.enable_action_blocking:
             self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
         new_data = {}

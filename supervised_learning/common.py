@@ -1,10 +1,11 @@
+import random
 import warnings
 from os import listdir
 from os.path import join, isfile
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-import random
 from pandas.api.types import is_numeric_dtype
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor

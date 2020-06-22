@@ -91,7 +91,8 @@ def run(run_info=None):
         if num_hidden_units is None:
             agent.network_init(network_type, initializer_type, activation_function, network_alpha, random_seed)
         else:
-            agent.network_init(network_type, initializer_type, activation_function, network_alpha, num_hidden_units, random_seed)
+            agent.network_init(network_type, initializer_type, activation_function, network_alpha, num_hidden_units,
+                               random_seed)
         agent.optimizer_init(learning_rate, beta_m, beta_v, epsilon)
         if learning_type == LearningType.Replay:
             agent.buffer_init(num_replay, buffer_size, minibatch_size, random_seed)
@@ -125,7 +126,7 @@ def run(run_info=None):
         for agent in environment.agents:
             agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
             agent.historical_data.to_csv(
-                join(agent_dir, 'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode+1)),
+                join(agent_dir, 'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1)),
                 index=False)
 
     agents = environment.agents

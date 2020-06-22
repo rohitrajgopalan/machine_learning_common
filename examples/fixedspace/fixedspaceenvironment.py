@@ -1,4 +1,4 @@
-from reinforcement_learning.environment.environment import Environment, RewardType, ActionType
+from reinforcement_learning.environment.environment import Environment, RewardType
 
 
 class FixedSpaced(Environment):
@@ -9,9 +9,9 @@ class FixedSpaced(Environment):
         super().__init__(RewardType.Delayed, 2, 10)
         self.square_length = square_length
         if square_length % 2 == 0:
-            self.final_location = (int(square_length / 2)-1, int(square_length / 2)-1)
+            self.final_location = (int(square_length / 2) - 1, int(square_length / 2) - 1)
         else:
-            self.final_location = (int(square_length/2), int(square_length/2))
+            self.final_location = (int(square_length / 2), int(square_length / 2))
 
     def calculate_reward(self, agent, state, action_type):
         if agent.get_action(action_type) is None:
@@ -48,9 +48,9 @@ class FixedSpaced(Environment):
             if chosen_action == 'UP':
                 x = max(x - 1, 0)
             elif chosen_action == 'DOWN':
-                x = min(x + 1, self.square_length-1)
+                x = min(x + 1, self.square_length - 1)
             elif chosen_action == 'LEFT':
                 y = max(y - 1, 0)
             elif chosen_action == 'RIGHT':
-                y = min(y + 1, self.square_length-1)
+                y = min(y + 1, self.square_length - 1)
             return x, y

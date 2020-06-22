@@ -1,5 +1,6 @@
-from .base_policy import Policy
 import numpy as np
+
+from .base_policy import Policy
 
 
 class ThompsonSampling(Policy):
@@ -29,7 +30,7 @@ class ThompsonSampling(Policy):
 
     def update(self, action, reward):
         r = 0
-        if reward > self.min_penalty*-1:
+        if reward > self.min_penalty * -1:
             r = 1
         self.alpha[action] += r
         self.beta[action] += 1 - r

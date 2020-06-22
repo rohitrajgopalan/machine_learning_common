@@ -1,5 +1,6 @@
-from .base_policy import Policy
 import numpy as np
+
+from .base_policy import Policy
 
 
 class UCB(Policy):
@@ -13,7 +14,7 @@ class UCB(Policy):
 
     def generate_confidence(self):
         ln_timestep = np.log(np.full(self.num_actions, self.time_step_counter))
-        confidence =  self.ucb_c * np.sqrt(ln_timestep / self.N)
+        confidence = self.ucb_c * np.sqrt(ln_timestep / self.N)
         return confidence.reshape(1, self.num_actions)
 
     def derive_policy_based_from_values(self, action_values):
@@ -33,5 +34,4 @@ class UCB(Policy):
 
     def add_action(self):
         super().add_action()
-        self.N = np.append(self.N, np.zeros(1)+0.001)
-
+        self.N = np.append(self.N, np.zeros(1) + 0.001)

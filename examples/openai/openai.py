@@ -1,7 +1,7 @@
+import gym
 from gym.spaces import Tuple, Box
 
 from reinforcement_learning.environment.environment import Environment, RewardType, ActionType
-import gym
 
 
 class OpenAIGymEnvironment(Environment):
