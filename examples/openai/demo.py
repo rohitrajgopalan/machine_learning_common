@@ -1,11 +1,12 @@
 from os import mkdir
 from os.path import join, dirname, realpath, isdir
 
-# from examples.common_online_demo import run_demo
 from gym.spaces import Box, Discrete, Tuple
 
-from examples.openai.openai import OpenAIGymEnvironment
-from examples.simple_online_demo import run_demo
+from reinforcement_learning.experiment.run_experiment import run_experiment
+from .openai import OpenAIGymEnvironment
+
+import numpy as np
 
 open_ai_problems = {
     'algorithms': ['Copy-v0', 'DuplicatedInput-v0', 'RepeatCopy-v0', 'Reverse-v0', 'ReversedAddition-v0',
@@ -49,5 +50,18 @@ for category in open_ai_problems:
         agent_info_list = [
             {'actions': actions, 'initial_state': environment.openAI.reset()}]
 
-        run_demo(environment, agent_info_list,
-                 join(dirname(realpath('__file__')), category, open_ai_gym_env.split('-')[0].lower()))
+        num_episodes = 1000
+
+        chosen_types = {'learning_type': 'online'}
+
+        policy_hyperparameters = {'seed': 0,
+                                  'taus': [0.001, 0.01, 0.1, 1.0],
+                                  'epsilons': list(np.arange(0.1, 0.5, 0.1)),
+                                  'confidence_factors': [0.01, 0.1, 2]}
+
+        algorithm_hyperparamters = {'alphas': list(np.arange(0.01, 0.10, 0.01)),
+                                    'gammas': list(np.arange(0.95, 1.00, 0.01)),
+                                    'lambdas': [1.0]}
+
+        run_experiment(dirname(realpath('__file__')), environment, num_episodes, agent_info_list, chosen_types,
+                       policy_hyperparameters, algorithm_hyperparamters)
