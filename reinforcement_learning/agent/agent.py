@@ -110,11 +110,11 @@ class Agent:
 
         self.reset()
 
-    def network_init(self, network_type, random_seed):
-        self.network = ActionValueNetwork(network_type, self.state_dim, len(self.actions), random_seed)
+    def network_init(self, network_type, initializer_type, activation_function, alpha, random_seed):
+        self.network = ActionValueNetwork(network_type, initializer_type, activation_function, alpha, self.state_dim, len(self.actions), random_seed)
 
-    def network_init(self, network_type, num_hidden_units, random_seed):
-        self.network = ActionValueNetwork(network_type, self.state_dim, num_hidden_units,
+    def network_init(self, network_type, initializer_type, activation_function, alpha, num_hidden_units, random_seed):
+        self.network = ActionValueNetwork(network_type, initializer_type, activation_function, alpha, self.state_dim, num_hidden_units,
                                           len(self.actions),
                                           random_seed)
 

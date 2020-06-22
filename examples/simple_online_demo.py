@@ -5,7 +5,6 @@ def run_demo(environment, agent_info_list, output_dir):
     num_episodes = 1000
 
     chosen_types = {'learning_type': 'online',
-                    'network_types': 'single',
                     'enable_e_traces': 'yes',
                     'enable_action_blocking': 'no',
                     'enable_regressors': 'no',
@@ -20,5 +19,9 @@ def run_demo(environment, agent_info_list, output_dir):
                                 'gammas': [0.975],
                                 'lambdas': [1.0]}
 
+    network_hyperparameters = {'network_types': 'single',
+                                'network_initializers': 'saxe',
+                                'activation_function': 'relu'}
+
     run_experiment(output_dir, environment, num_episodes, agent_info_list, chosen_types,
-                   policy_hyperparameters, algorithm_hyperparamters)
+                   policy_hyperparameters, algorithm_hyperparamters, network_hyperparameters)

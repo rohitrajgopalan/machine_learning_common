@@ -42,6 +42,9 @@ def run(run_info=None):
     else:
         num_hidden_units = None
     random_seed = run_info['random_seed']
+    initializer_type = run_info['initializer_type']
+    activation_function = run_info['activation_function']
+    network_alpha = run_info['network_alpha']
 
     learning_rate = run_info['learning_rate']
     beta_m = run_info['beta_m']
@@ -86,9 +89,9 @@ def run(run_info=None):
         if not isdir(agent_dir):
             mkdir(agent_dir)
         if num_hidden_units is None:
-            agent.network_init(network_type, random_seed)
+            agent.network_init(network_type, initializer_type, activation_function, network_alpha, random_seed)
         else:
-            agent.network_init(network_type, num_hidden_units, random_seed)
+            agent.network_init(network_type, initializer_type, activation_function, network_alpha, num_hidden_units, random_seed)
         agent.optimizer_init(learning_rate, beta_m, beta_v, epsilon)
         if learning_type == LearningType.Replay:
             agent.buffer_init(num_replay, buffer_size, minibatch_size, random_seed)

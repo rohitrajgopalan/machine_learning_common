@@ -7,13 +7,13 @@ from reinforcement_learning.agent.agent import Agent
 from reinforcement_learning.algorithm.base_algorithm import AlgorithmName
 from reinforcement_learning.algorithm.choose_algorithm import choose_algorithm
 from reinforcement_learning.experiment.run import run
-from reinforcement_learning.network.actionvaluenetwork import NetworkType
+from reinforcement_learning.network.actionvaluenetwork import NetworkType, NetworkInitializationType, NetworkActivationFunction
 from reinforcement_learning.policy.choose_policy import choose_policy
 import pandas as pd
 import numpy as np
 
 cols = ['LEARNING_TYPE', 'ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'ALPHA', 'GAMMA',
-        'NETWORK_TYPE', 'ENABLE_E_TRACES', 'LAMBDA', 'ENABLE_ACTION_BLOCKING', 'ENABLE_REGRESSOR', 'AVG_TIMESTEP',
+        'NETWORK_TYPE', 'NETWORK_INITIALIZER', 'ACTIVATION_FUNCTION', 'NETWORK_ALPHA', 'ENABLE_E_TRACES', 'LAMBDA', 'ENABLE_ACTION_BLOCKING', 'ENABLE_REGRESSOR', 'AVG_TIMESTEP',
         'MAX_TIMESTEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
 hyper_parameters_data = None
 agent_cols = ['AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'FINAL_POLICY_FILE', 'ACTIONS_FILE']
@@ -37,6 +37,9 @@ def process_run(run_info, agents, runtimes, timesteps):
                                                           'ALPHA': run_info['learning_rate'],
                                                           'GAMMA': run_info['algorithm_args']['discount_factor'],
                                                           'NETWORK_TYPE': run_info['network_type'].name,
+                                                          'NETWORK_INTIALIZER': run_info['network_initializer'].name,
+                                                          'ACTIVATION_FUNCTION': run_info['activation_function'].name,
+                                                          'NETWORK_ALPHA': run_info['network_alpha'],
                                                           'ENABLE_E_TRACES': 'Yes' if run_info['algorithm_args'][
                                                               'enable_e_traces'] else 'No',
                                                           'LAMBDA': run_info['algorithm_args']['lambda_val'] if
@@ -153,6 +156,26 @@ def choose_from_options(all_possible_options, chosen_types, key):
     return chosen_options
 
 
+def choose_from_enums(all_possible_options, chosen_types, key):
+    chosen_options = []
+
+    if key in chosen_types:
+        if type(chosen_types[key]) == str:
+            if chosen_types[key] == 'all':
+                chosen_options = all_possible_options
+            else:
+                for some_type in all_possible_options:
+                    if some_type.name == chosen_types[key].upper():
+                        chosen_options = [some_type]
+                        break
+        elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
+            chosen_options = chosen_types[key]
+    else:
+        chosen_options = all_possible_options
+
+    return chosen_options
+
+
 def create_boolean_list(chosen_types, key):
     chosen_options = []
     if key in chosen_types:
@@ -169,7 +192,10 @@ def create_boolean_list(chosen_types, key):
 
 def run_experiment(output_dir, environment, num_episodes, agents_info_list, chosen_types, policy_hyperparameters,
                    algorithm_hyperparameters,
+                   network_hyperparameters=None,
                    replay_buffer_info=None):
+    if network_hyperparameters is None:
+        network_hyperparameters = {}
     global hyper_parameters_data
     hyper_parameters_data = pd.DataFrame(columns=cols)
     global agents_data
@@ -208,20 +234,15 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
     if 'lambdas' not in algorithm_hyperparameters or len(algorithm_hyperparameters['lambdas']) == 0:
         algorithm_hyperparameters['lambdas'] = [0]
 
-    chosen_network_types = []
-
-    if 'network_types' in chosen_types:
-        if chosen_types['network_types'] == 'all':
-            chosen_network_types = [NetworkType.SINGLE, NetworkType.DOUBLE]
-        elif chosen_types['network_types'] == 'single':
-            chosen_network_types = [NetworkType.SINGLE]
-        elif chosen_types['network_types'] == 'double':
-            chosen_network_types = [NetworkType.DOUBLE]
-    else:
-        chosen_network_types = [NetworkType.SINGLE, NetworkType.DOUBLE]
-
+    chosen_network_types = choose_from_enums(NetworkType.all(), network_hyperparameters, 'network_types')
+    chosen_network_initializers = choose_from_enums(NetworkInitializationType.all(), network_hyperparameters,
+                                                    'network_initializers')
+    chosen_activation_functions = choose_from_enums(NetworkActivationFunction.all(), network_hyperparameters, 'activation_functions')
     chosen_action_blockers = create_boolean_list(chosen_types, 'enable_action_blocking')
     chosen_enable_regressors = create_boolean_list(chosen_types, 'enable_regressors')
+
+    if 'alphas' not in network_hyperparameters or len(network_hyperparameters['alphas']) == 0:
+        network_hyperparameters['alphas'] = [0]
 
     for policy_name in chosen_policies:
         run_info['policy_name'] = policy_name
@@ -272,12 +293,18 @@ def run_experiment(output_dir, environment, num_episodes, agents_info_list, chos
                                         for network_type in chosen_network_types:
                                             run_info['network_type'] = network_type
 
-                                            if chosen_learning_type == LearningType.Replay:
-                                                for key in replay_buffer_info:
-                                                    run_info[key] = replay_buffer_info[key]
+                                            for initializer_type in chosen_network_initializers:
+                                                run_info['initializer_type'] = initializer_type
+                                                for activation_function in chosen_activation_functions:
+                                                    run_info['activation_function'] = activation_function
+                                                    for network_alpha in network_hyperparameters['alphas']:
+                                                        run_info['network_alpha'] = network_alpha
+                                                        if chosen_learning_type == LearningType.Replay:
+                                                            for key in replay_buffer_info:
+                                                                run_info[key] = replay_buffer_info[key]
 
-                                            agents, timesteps, runtimes = run(run_info)
-                                            process_run(run_info, agents, timesteps, runtimes)
+                                                        agents, timesteps, runtimes = run(run_info)
+                                                        process_run(run_info, agents, timesteps, runtimes)
 
     hyper_parameters_data.to_csv(join(output_dir, 'run_summary.csv'), index=False)
     agents_data.to_csv(join(output_dir, 'agents_data.csv'), index=False)
