@@ -12,9 +12,8 @@ from reinforcement_learning.supervised.negative_action_blocker import NegativeAc
 
 
 class LearningType(enum.Enum):
-    Online = 1
-    Replay = 2
-
+    ONLINE = 1,
+    REPLAY = 2
 
 
 class Agent:

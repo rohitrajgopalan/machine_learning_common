@@ -15,16 +15,19 @@ class Environment:
     agents = []
     reward_type = None
     required_state_dim = 0
+    max_time_steps = 0
+    current_time_step = 0
 
     min_penalty = -1
 
     # agent_id: (next_state_1, rewards_1, next_state_2, rewards_2) or
     agents_step_info = {}
 
-    def __init__(self, reward_type, required_state_dim, min_penalty):
+    def __init__(self, reward_type, required_state_dim, min_penalty, max_time_steps=0):
         self.reward_type = reward_type
         self.required_state_dim = required_state_dim
         self.min_penalty = min_penalty
+        self.max_time_steps = max_time_steps
 
     def set_agents(self, agents):
         self.agents = agents
@@ -48,10 +51,11 @@ class Environment:
         for agent in self.agents:
             agent.reset()
         self.agents_step_info = {}
+        self.current_time_step = 0
 
     def is_complete(self):
         active_agents = [agent for agent in self.agents if agent.active]
-        return len(active_agents) == 0
+        return len(active_agents) == 0 or (0 < self.max_time_steps == self.current_time_step)
 
     def generate_rewards(self):
         for agent in self.agents:
@@ -83,6 +87,7 @@ class Environment:
     def step(self):
         if self.is_complete():
             return True
+        self.current_time_step += 1
         active_agents = [agent for agent in self.agents if agent.active]
         for agent in active_agents:
             agent.choose_next_action()
