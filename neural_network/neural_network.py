@@ -61,7 +61,7 @@ class NeuralNetwork:
     def build_model(self):
         self.model = tf.keras.models.Sequential()
         for network_layer in self.network_layers:
-            self.model.add(network_layer.dense_layer)
+            self.model.add(network_layer.layer)
         self.model.compile(self.optimizer, loss='mse')
 
     def optimizer_init(self, optimizer_type, optimizer_args={}):

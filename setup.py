@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='ai-ml-common',
       version='1.0',
@@ -6,5 +6,8 @@ setup(name='ai-ml-common',
       author='Rohit Gopalan',
       author_email='rohitgopalan1990@gmail.com',
       license='MIT',
-      packages=['neural_network', 'reinforcement_learning', 'supervised_learning'],
+      packages=find_packages(),
+      install_requires=[
+        'numpy', 'pandas', 'sklearn', 'tensorflow'
+      ],
       zip_safe=False)
