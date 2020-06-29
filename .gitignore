@@ -3,4 +3,8 @@ log*
 *.conf
 *.pyc
 .idea/workspace.xml
-
+ai_ml_common.egg-info*
+build*
+dist*
+venv*
+twine*
