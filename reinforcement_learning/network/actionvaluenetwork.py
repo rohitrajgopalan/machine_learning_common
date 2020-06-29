@@ -1,117 +1,20 @@
-import enum
-import math
-from copy import deepcopy
-
+from neural_network.neural_network import NeuralNetwork
 import numpy as np
 
 
-class NetworkType(enum.Enum):
-    SINGLE = 1
-    DOUBLE = 2
+class ActionValueNetwork(NeuralNetwork):
+    model = None
+    network_layers = None
+    state_dim = 0
+    num_actions = 0
+    optimizer = None
 
-    @staticmethod
-    def all():
-        return [NetworkType.SINGLE, NetworkType.DOUBLE]
-
-
-class NetworkInitializationType(enum.Enum):
-    XAVIER = 1,
-    HE = 2,
-    SAXE = 3,
-
-    @staticmethod
-    def all():
-        return [NetworkInitializationType.XAVIER, NetworkInitializationType.HE, NetworkInitializationType.SAXE]
-
-
-class NetworkActivationFunction(enum.Enum):
-    ARCTAN = 1,
-    ELU = 2,
-    IDENTITY = 3,
-    PRELU = 4,
-    RELU = 5,
-    SIGMOID = 6,
-    SOFTPLUS = 7,
-    TANH = 8
-
-    @staticmethod
-    def all():
-        return [NetworkActivationFunction.ARCTAN, NetworkActivationFunction.ELU, NetworkActivationFunction.IDENTITY,
-                NetworkActivationFunction.PRELU, NetworkActivationFunction.RELU, NetworkActivationFunction.SIGMOID,
-                NetworkActivationFunction.SOFTPLUS, NetworkActivationFunction.TANH]
-
-
-class ActionValueNetwork:
-    weights = []
-
-    # A flag to indicate whether hidden units was specified in the constructor or not
-    did_set_hidden_units = True
-
-    def __init__(self, network_type, initialization_type, activation_function, alpha, state_dim, num_hidden_units,
-                 num_actions, random_seed):
-        self.network_type = network_type
-        self.initialization_type = initialization_type
-        self.activation_function = activation_function
-        self.alpha = alpha
-        self.num_dim_state = state_dim
-        self.num_hidden_units = num_hidden_units
-        self.num_actions = num_actions
-        self.rand_generator = np.random.RandomState(random_seed)
-        self.layer_sizes = np.array([self.num_dim_state, self.num_hidden_units, self.num_actions])
-        if self.num_hidden_units == int(math.sqrt(state_dim * num_actions)):
-            self.did_set_hidden_units = False
-        self.initialize_weights()
-
-    """
-    There is a fundamental approach to automatically determine number of hidden units in a NN
-    See: Masters, Timothy. Practical neural network recipes in C++. Morgan Kaufmann, 1993.
-    and http://www.iitbhu.ac.in/faculty/min/rajesh-rai/NMEICT-Slope/lecture/c14/l1.html
-    """
-
-    def __init__(self, network_type, initialization_type, activation_function, alpha, state_dim, num_actions,
-                 random_seed):
-        self.__init__(network_type, initialization_type, activation_function, alpha, state_dim,
-                      int(math.sqrt(state_dim * num_actions)), num_actions, random_seed)
-
-    def initialize_weights(self):
-        self.weights = []
-        for _ in range(self.network_type.value):
-            self.weights.append([{'W': self.init_array(self.num_dim_state, self.num_hidden_units),
-                                  'b': np.zeros((1, self.num_hidden_units))},
-                                 {'W': self.init_array(self.num_hidden_units, self.num_actions),
-                                  'b': np.zeros((1, self.num_actions))}])
-
-    def add_action(self):
-        self.num_actions += 1
-        self.layer_sizes[2] += 1
-        if not self.did_set_hidden_units:
-            self.layer_sizes[1] = int(math.sqrt(self.num_dim_state * self.num_actions))
-            self.num_hidden_units = int(math.sqrt(self.num_dim_state * self.num_actions))
-        self.initialize_weights()
-
-    # Developing this function to decide which index of weights to use
-    # This is more useful for double networks
-    def determine_coin_side(self):
-        return self.rand_generator.choice(self.network_type.value)
-
-    # Perform the appropriate activation based on the assigned Activation Function
-    def perform_activation(self, psi):
-        if self.activation_function == NetworkActivationFunction.ARCTAN:
-            return np.arctan(psi)
-        elif self.activation_function == NetworkActivationFunction.ELU:
-            return np.where(psi < 0, self.alpha * (np.exp(psi) - 1), psi)
-        elif self.activation_function == NetworkActivationFunction.PRELU:
-            return np.where(psi < 0, self.alpha * psi, psi)
-        elif self.activation_function == NetworkActivationFunction.RELU:
-            return np.maximum(psi, 0)
-        elif self.activation_function == NetworkActivationFunction.SIGMOID:
-            return 1 / (1 + np.exp(psi * -1))
-        elif self.activation_function == NetworkActivationFunction.SOFTPLUS:
-            return np.log(1 + np.exp(psi))
-        elif self.activation_function == NetworkActivationFunction.TANH:
-            return np.tanh(psi)
-        else:
-            return psi
+    def __init__(self, num_inputs, num_outputs, optimizer_type, optimizer_args={},
+                 network_layer_info_list=[]):
+        super().__init__(num_inputs, num_outputs, optimizer_type, optimizer_args,
+                         network_layer_info_list)
+        self.state_dim = num_inputs
+        self.num_actions = num_outputs
 
     # Based on the assigned activation function, perform the derative.
     def perform_derative(self, psi):

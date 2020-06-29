@@ -39,7 +39,7 @@ class StaticPolicy(Policy):
             else:
                 self.policy_table.update({state: [action]})
 
-    def derive(self, state, network=None, coin_side=0):
+    def derive(self, state, network):
         if type(state) == tuple:
             state = np.array([state])
         policy_probs = np.zeros(self.num_actions)
@@ -49,7 +49,7 @@ class StaticPolicy(Policy):
                 policy_probs[action] = 1 / len(actions_to_take)
         return policy_probs
 
-    def choose_action(self, state, network=None, coin_side=0):
+    def choose_action(self, state, network):
         if type(state) == tuple:
             state = np.array([state])
         if state in self.policy_table:

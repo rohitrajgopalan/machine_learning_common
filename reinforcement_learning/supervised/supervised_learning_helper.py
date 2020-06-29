@@ -3,8 +3,8 @@ import enum
 import numpy as np
 import pandas as pd
 
-from supervised_learning.common import select_best_regressor, select_best_classifier, randomly_select_classifier, \
-    randomly_select_regressor
+from .scikit_learn_helper import ScikitLearnHelper
+from .deep_learning_helper import DeepLearningHelper
 
 
 class MethodType(enum.Enum):
@@ -14,7 +14,6 @@ class MethodType(enum.Enum):
 
 class SupervisedLearningHelper:
     method_type = None
-    method = None
     state_dim = 0
     csv_dir = ''
     filters = {}
@@ -35,22 +34,13 @@ class SupervisedLearningHelper:
         self.label = label
         self.filters = filters
         self.update()
-
-    def update(self):
-        if self.method_type == MethodType.Regression:
-            self.method, self.historical_data = select_best_regressor(self.csv_dir, features=self.features,
-                                                                      label=self.label, filters=self.filters)
-            if self.method is None:
-                self.method = randomly_select_regressor()
-        else:
-            self.method, self.historical_data = select_best_classifier(self.csv_dir, features=self.features,
-                                                                       label=self.label)
-            if self.method is None:
-                self.method = randomly_select_classifier()
         if self.historical_data is None:
             cols = self.features
             cols.append(self.label)
             self.historical_data = pd.DataFrame(columns=cols)
+
+    def update(self):
+        pass
 
     def add(self, state, action, target_value):
         new_data = {'INITIAL_ACTION': action, self.label: target_value}
@@ -62,7 +52,10 @@ class SupervisedLearningHelper:
         self.historical_data = self.historical_data.append(new_data, ignore_index=True)
         x = self.historical_data[self.features]
         y = self.historical_data[self.label]
-        self.method.fit(x, y)
+        self.fit(x, y)
+
+    def fit(self, x, y):
+        pass
 
     def predict(self, state, action):
         if self.state_dim == 1:
@@ -71,4 +64,14 @@ class SupervisedLearningHelper:
             input_x = list(state)
         input_x.append(action)
         x = np.array([input_x])
-        return self.method.predict(x)
+        return self.get_predictions(x)
+
+    def get_predictions(self, inputs):
+        return None
+
+    @staticmethod
+    def choose_helper(method_type, csv_dir, state_dim, label, filters={}, dl_args=None):
+        if dl_args is None:
+            return ScikitLearnHelper(method_type, csv_dir, state_dim, label, filters)
+        else:
+            return DeepLearningHelper(method_type, csv_dir, state_dim, label, filters, dl_args)

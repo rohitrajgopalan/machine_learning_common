@@ -30,14 +30,14 @@ class Policy:
         ties = self.actions_with_max_value(action_values)
         return self.rand_generator.choice(ties)
 
-    def derive(self, state, network=None, coin_side=0):
-        return self.derive_policy_based_from_values(network.get_action_values(state, coin_side))
+    def derive(self, state, network):
+        return self.derive_policy_based_from_values(network.get_action_values(state))
 
     def derive_policy_based_from_values(self, action_values):
         return np.zeros(self.num_actions)
 
-    def choose_action(self, state, network=None, coin_side=0):
-        return self.choose_action_based_from_values(network.get_action_values(state, coin_side))
+    def choose_action(self, state, network):
+        return self.choose_action_based_from_values(network.get_action_values(state))
 
     def choose_action_based_from_values(self, action_values):
         return 0
