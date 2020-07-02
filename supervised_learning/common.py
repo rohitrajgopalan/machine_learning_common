@@ -70,11 +70,10 @@ def plot_data(metrics_to_data, test_sizes, methods):
         print()
 
 
-def load_from_directory(csv_dir, features=[], label='', filters={}):
+def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
     datasets = [join(csv_dir, f) for f in listdir(csv_dir) if isfile(join(csv_dir, f))]
 
-    cols = features
-    cols.append(label)
+    label = cols[len(cols) - 1]
 
     if filters == {}:
         df_from_each_file = [pd.read_csv(f) for f in datasets]
@@ -86,7 +85,8 @@ def load_from_directory(csv_dir, features=[], label='', filters={}):
                 df = df.loc[df[key] == filters[key]]
                 if df is None:
                     break
-            df = df[cols]
+            if len(cols) > 0:
+                df = df[cols]
             if df is not None and len(df.index) > 0:
                 df_from_each_file.append(df)
 
@@ -100,7 +100,14 @@ def load_from_directory(csv_dir, features=[], label='', filters={}):
                 for i, unique_label in enumerate(unique_labels):
                     replace_dict.update({unique_label: i + 1})
             df.replace({label: replace_dict})
-    return df_from_each_file
+
+    return pd.concat(df_from_each_file, ignore_index=True) if concat else df_from_each_file
+
+
+def load_from_directory(csv_dir, features=[], label='', filters={}, concat=False):
+    cols = features
+    cols.append(label)
+    return load_from_directory(csv_dir, cols, filters, concat)
 
 
 def perform_and_plot_experiment_on_data(csv_dir, methods):

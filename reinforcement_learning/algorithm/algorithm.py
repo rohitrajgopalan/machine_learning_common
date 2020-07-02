@@ -11,6 +11,10 @@ class AlgorithmName(enum.Enum):
     EXPECTED_SARSA = 3,
     MCQL = 4
 
+    @staticmethod
+    def all():
+        return [AlgorithmName.SARSA, AlgorithmName.Q, AlgorithmName.EXPECTED_SARSA, AlgorithmName.MCQL]
+
 
 class Algorithm:
     discount_factor = 0.0
@@ -29,7 +33,9 @@ class Algorithm:
         self.iterator = TargetValuePredictor(csv_dir, state_dim, self, self.policy, dl_args)
 
     def calculate_target_value(self, a, s_, r, active, policy_network, target_network=None):
-        a_ = self.get_potential_action(target_network, s_, a) if target_network is not None else self.get_potential_action(policy_network, s_, a)
+        a_ = self.get_potential_action(target_network, s_,
+                                       a) if target_network is not None else self.get_potential_action(policy_network,
+                                                                                                       s_, a)
         return r + (self.discount_factor * self.get_scalar(s_, a_, policy_network) * active)
 
     def get_target_value(self, s, a, s_, r, active, network):

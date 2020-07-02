@@ -15,6 +15,10 @@ class LearningType(enum.Enum):
     ONLINE = 1,
     REPLAY = 2
 
+    @staticmethod
+    def all():
+        return [LearningType.ONLINE, LearningType.REPLAY]
+
 
 class Agent:
     learning_type = None
@@ -99,9 +103,6 @@ class Agent:
         if len(actions_csv_file) > 0:
             self.load_actions_from_csv(actions_csv_file)
 
-        # We want to ensure that all components have the same number of actions
-        self.algorithm.num_actions = len(self.actions)
-
         self.reset()
 
     def blocker_init(self, csv_dir, dl_args=None):
@@ -171,27 +172,11 @@ class Agent:
             self.target_network.add_action()
         self.algorithm.policy.add_action()
 
-    def network_init(self, optimizer_type, optimizer_args={},
-                     network_layer_info_list=[]):
-        self.policy_network = ActionValueNetwork(self.state_dim, len(self.actions), optimizer_type,
-                                                 optimizer_args,
-                                                 network_layer_info_list)
+    def network_init(self, action_network_args):
+        action_network_args.update({'num_inputs': self.state_dim, 'num_outputs': len(self.actions)})
+        self.policy_network = ActionValueNetwork(action_network_args)
         if self.is_double_agent:
-            self.target_network = ActionValueNetwork(self.state_dim, len(self.actions), optimizer_type,
-                                                     optimizer_args,
-                                                     network_layer_info_list)
-
-    def network_init(self, hidden_layer_sizes, activation_function, kernel_initializer, bias_initializer,
-                     optimizer_type, optimizer_args={}, use_bias=True):
-        self.policy_network = ActionValueNetwork(self.state_dim, len(self.actions), hidden_layer_sizes,
-                                                 activation_function, kernel_initializer, bias_initializer,
-                                                 optimizer_type,
-                                                 optimizer_args, use_bias)
-        if self.is_double_agent:
-            self.target_network = ActionValueNetwork(self.state_dim, len(self.actions), hidden_layer_sizes,
-                                                     activation_function, kernel_initializer, bias_initializer,
-                                                     optimizer_type,
-                                                     optimizer_args, use_bias)
+            self.target_network = ActionValueNetwork(action_network_args)
 
     def step(self, r1, r2):
         self.n_update_steps += 1
@@ -207,7 +192,7 @@ class Agent:
         self.add_state(self.next_state)
 
         if self.is_double_agent:
-            self.target_network.model.set_weights(self.policy_network.model.get_weights())
+            self.target_network.set_weights(self.policy_network.get_weights())
 
         if self.learning_type == LearningType.Replay:
             self.replay_buffer.append(self.current_state, self.initial_action, r, 1 - int(self.active), self.next_state)
