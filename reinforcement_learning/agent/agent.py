@@ -55,8 +55,8 @@ class Agent:
         # In an multi-agent setting, data from other agents might come and populate here which will
         # break the code and give unexpected results.
         # So a pre-clean-up is necessary
-        if len(self.state_space) > 0:
-            self.state_space = []
+        if len(self.experienced_states) > 0:
+            self.experienced_states = []
         if len(self.historical_data_columns) > 0:
             self.historical_data_columns = []
 

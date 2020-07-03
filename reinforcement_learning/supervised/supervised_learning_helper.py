@@ -2,9 +2,10 @@ import enum
 
 import numpy as np
 import pandas as pd
+from neural_network.neural_network import NeuralNetwork
 
-from .scikit_learn_helper import ScikitLearnHelper
-from .deep_learning_helper import DeepLearningHelper
+from supervised_learning.common import randomly_select_classifier, randomly_select_regressor, select_best_regressor, \
+    select_best_classifier
 
 
 class MethodType(enum.Enum):
@@ -75,3 +76,43 @@ class SupervisedLearningHelper:
             return ScikitLearnHelper(method_type, csv_dir, state_dim, label, filters)
         else:
             return DeepLearningHelper(method_type, csv_dir, state_dim, label, filters, dl_args)
+
+
+class ScikitLearnHelper(SupervisedLearningHelper):
+    method = None
+
+    def update(self):
+        if self.method_type == MethodType.Regression:
+            self.method, self.historical_data = select_best_regressor(self.csv_dir, features=self.features,
+                                                                      label=self.label, filters=self.filters)
+            if self.method is None:
+                self.method = randomly_select_regressor()
+        else:
+            self.method, self.historical_data = select_best_classifier(self.csv_dir, features=self.features,
+                                                                       label=self.label)
+            if self.method is None:
+                self.method = randomly_select_classifier()
+
+    def fit(self, x, y):
+        self.method.fit(x, y)
+
+    def get_predictions(self, inputs):
+        return self.method.predict(inputs)
+
+
+class DeepLearningHelper(SupervisedLearningHelper):
+    model = None
+
+    def __init__(self, method_type, csv_dir, state_dim, label, filters={}, dl_args={}):
+        dl_args.update({'num_inputs': state_dim, 'num_outputs': 1})
+        self.model = NeuralNetwork.choose_neural_network(dl_args)
+        columns = self.features
+        columns.append(self.label)
+        self.model.load_data_from_directory(self.csv_dir, columns)
+        super().__init__(method_type, csv_dir, state_dim, label, filters)
+
+    def fit(self, x, y):
+        self.model.update_network(x, y)
+
+    def get_predictions(self, inputs):
+        self.model.predict(inputs)

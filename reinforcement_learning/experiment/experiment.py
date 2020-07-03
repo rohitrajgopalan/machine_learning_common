@@ -173,7 +173,7 @@ class Experiment:
         # Gather specifics
         agents_info_list = specifics['agent_info_list']
         action_network_args = specifics['action_network_args']
-        num_episodes = specifics['num_epsiodes']
+        num_episodes = specifics['num_episodes']
         environment = specifics['environment']
         random_seed = specifics['seed'] if 'seed' in specifics else 0
         action_blocking_dl_args = specifics['action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
