@@ -1,17 +1,19 @@
 import tensorflow as tf
 
+from .network_types import NetworkInitializationType, NetworkActivationFunction
+
 
 class NetworkLayer:
     layer = None
-    activation_function = None
-    kernel_initializer = None
-    bias_initializer = None
-    use_bias = True
-    input_shape = None
 
-    def __init__(self, args={}):
-        for key in args:
-            setattr(self, key, args[key])
+    def __init__(self, activation_function: NetworkActivationFunction = None,
+                 kernel_initializer: NetworkInitializationType = None,
+                 bias_initializer: NetworkInitializationType = None, use_bias=True, input_shape=None):
+        self.activation_function = activation_function
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.use_bias = use_bias
+        self.input_shape = input_shape
         self.build_layer()
 
     def build_layer(self):
@@ -22,13 +24,17 @@ class NetworkLayer:
 
 
 class ConvNetworkLayer(NetworkLayer):
-    num_dimensions = 0
-    is_transpose = False
-    num_filters = 0
-    # Can be a single integer or a tuple of 2 integers
-    kernel_size = (0, 0)
-    # Can be a single integer or a tuple of 2 integers
-    strides = 0
+    def __init__(self, num_dimensions, num_filters, kernel_size, strides, is_transpose=False, activation_function: NetworkActivationFunction = None,
+                 kernel_initializer: NetworkInitializationType = None,
+                 bias_initializer: NetworkInitializationType = None, use_bias=True, input_shape=None):
+        self.num_dimensions = num_dimensions
+        self.num_filters = num_filters
+        # Can be a single integer or a tuple of 2 integers
+        self.kernel_size = kernel_size
+        # Can be a single integer or a tuple of 2 integers
+        self.strides = strides
+        self.is_transpose = is_transpose
+        super().__init__(activation_function, kernel_initializer, bias_initializer, use_bias, input_shape)
 
     def build_layer(self):
         if self.activation_function is None and self.input_shape is None:
@@ -158,6 +164,12 @@ class ConvNetworkLayer(NetworkLayer):
 class DenseNetworkLayer(NetworkLayer):
     num_units = 0
 
+    def __init__(self, num_units, activation_function: NetworkActivationFunction = None,
+                 kernel_initializer: NetworkInitializationType = None,
+                 bias_initializer: NetworkInitializationType = None, use_bias=True, input_shape=None):
+        self.num_units = num_units
+        super().__init__(activation_function, kernel_initializer, bias_initializer, use_bias, input_shape)
+
     def build_layer(self):
         if self.activation_function is None and self.input_shape is None:
             self.layer = tf.keras.layers.Dense(self.num_units,
@@ -186,6 +198,9 @@ class DenseNetworkLayer(NetworkLayer):
 
 
 class Flatten(NetworkLayer):
+
+    def __init__(self):
+        super().__init__()
 
     def build_layer(self):
         self.layer = tf.keras.layers.Flatten()

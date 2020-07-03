@@ -194,7 +194,7 @@ class Agent:
         if self.is_double_agent:
             self.target_network.set_weights(self.policy_network.get_weights())
 
-        if self.learning_type == LearningType.Replay:
+        if self.learning_type == LearningType.REPLAY:
             self.replay_buffer.append(self.current_state, self.initial_action, r, 1 - int(self.active), self.next_state)
             if self.replay_buffer.size() > self.replay_buffer.minibatch_size:
                 for _ in range(self.num_replay):

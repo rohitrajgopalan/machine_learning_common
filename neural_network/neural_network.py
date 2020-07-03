@@ -43,6 +43,23 @@ class NeuralNetwork:
         y = all_data[label]
         self.update_network(x, y)
 
+    def parse_dense_layer_info(self, num_inputs, num_outputs, dense_layer_info_list=[], set_input_shape=True):
+        for idx, dense_layer_info in enumerate(dense_layer_info_list):
+            if idx == len(dense_layer_info_list) - 1:
+                num_units = num_outputs
+            elif 'num_units' not in dense_layer_info or dense_layer_info['num_units'] == 'auto':
+                num_units = int(np.sqrt(num_inputs * num_outputs))
+            else:
+                num_units = dense_layer_info['num_units']
+            activation_function = dense_layer_info['activation_function'] if 'activation_function' in dense_layer_info else None
+            kernel_initializer = dense_layer_info['kernel_initializer'] if 'kernel_initializer' in dense_layer_info else NetworkInitializationType.ZEROS
+            bias_initializer = dense_layer_info['bias_initializer'] if 'bias_initializer' in dense_layer_info else NetworkInitializationType.ZEROS
+            use_bias = dense_layer_info['use_bias'] if 'use_bias' in dense_layer_info else True
+            input_shape = (num_inputs,) if idx == 0 and set_input_shape else None
+            self.network_layers.append(
+                DenseNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
+                                  input_shape))
+
     @staticmethod
     def choose_neural_network(args={}):
         if 'conv_layer_info_list' in args:
@@ -53,82 +70,55 @@ class NeuralNetwork:
 
 class ObservationNeuralNetwork(NeuralNetwork):
     def __init__(self, args={}):
+        self.network_layers = []
         num_inputs = args['num_inputs']
         num_outputs = args['num_outputs']
         optimizer_type = args['optimizer_type']
         optimizer_args = args['optimizer_args'] if 'optimizer_args' in args else {}
-        if 'network_layer_info_list' in args:
-            network_layer_info_list = args['network_layer_info_list']
-            self.network_init(num_inputs, num_outputs, optimizer_type, optimizer_args, network_layer_info_list)
-        else:
-            hidden_layer_sizes = args['hidden_layer_sizes'] if 'hidden_layer_sizes' in args else []
-            activation_function = args['activation_function'] if 'activation_function' in args else None
-            kernel_initializer = args['kernel_initializer'] if 'kernel_initializer' in args else None
-            bias_initializer = args['bias_initializer'] if 'bias_initializer' in args else None
-            use_bias = args['use_bias'] if 'use_bias' in args else True
-            self.network_init(num_inputs, num_outputs, hidden_layer_sizes, activation_function, kernel_initializer,
-                              bias_initializer, optimizer_type, optimizer_args, use_bias)
-
-    def network_init(self, num_inputs, num_outputs, optimizer_type, optimizer_args={},
-                     network_layer_info_list=[]):
-        self.network_layers = []
         self.optimizer_init(optimizer_type, optimizer_args)
-        for idx, network_layer_info in enumerate(network_layer_info_list):
-            if idx == 0:
-                network_layer_info.update({'num_inputs': num_inputs})
-            elif idx == len(network_layer_info_list) - 1:
-                network_layer_info.update({'num_units': num_outputs})
-            if 'num_units' not in network_layer_info or network_layer_info['num_units'].lower() == 'auto':
-                network_layer_info.update({'num_units': int(np.sqrt(num_inputs * num_outputs))})
-            network_layer = DenseNetworkLayer(network_layer_info)
-            self.network_layers.append(network_layer)
+        if 'dense_layer_info_list' in args:
+            self.parse_dense_layer_info(num_inputs, num_outputs, args['dense_layer_info_list'])
+        else:
+            hidden_layer_sizes = args['hidden_layer_sizes']
+            activation_function = args['activation_function']
+            kernel_initializer = args['kernel_initializer']
+            bias_initializer = args['bias_initializer']
+            use_bias = args['use_bias'] if 'use_bias' in args else True
+            for idx, hidden_layer_size in enumerate(hidden_layer_sizes):
+                if hidden_layer_size == 'auto':
+                    num_units = int(np.sqrt(num_inputs * num_outputs))
+                else:
+                    num_units = hidden_layer_size
+                input_shape = (num_inputs, ) if idx == 0 else None
+                self.network_layers.append(DenseNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias, input_shape))
+            self.network_layers.append(DenseNetworkLayer(num_outputs, activation_function, kernel_initializer, bias_initializer, use_bias))
         self.build_model()
-
-    def network_init(self, num_inputs, num_outputs, hidden_layer_sizes, activation_function, kernel_initializer,
-                     bias_initializer, optimizer_type, optimizer_args={}, use_bias=True):
-        network_layer_info_list = []
-        common_dict = {
-            'activation_function': activation_function,
-            'kernel_initializer': kernel_initializer,
-            'bias_initializer': bias_initializer,
-            'use_bias': use_bias
-        }
-        for idx, hidden_layer_size in enumerate(hidden_layer_sizes):
-            hidden_layer_info = common_dict
-            hidden_layer_info.update({'num_units': hidden_layer_size})
-            network_layer_info_list.append(hidden_layer_info)
-        network_layer_info_list.append(common_dict)
-        self.__init__(num_inputs, num_outputs, optimizer_type, optimizer_args, network_layer_info_list)
 
 
 class ImageFrameNeuralNetwork(NeuralNetwork):
 
     def __init__(self, args={}):
+        self.network_layers = []
         num_inputs = args['num_inputs']
         num_outputs = args['num_outputs']
         optimizer_type = args['optimizer_type']
         optimizer_args = args['optimizer_args'] if 'optimizer_args' in args else {}
         conv_layer_info_list = args['conv_layer_info_list'] if 'conv_layer_info_list' else []
-        network_layer_info_list = args['network_layer_info_list'] if 'network_layer_info_list' else []
-
-        self.network_init(num_inputs, num_outputs, optimizer_type, optimizer_args, network_layer_info_list,
-                          conv_layer_info_list)
-
-    def network_init(self, num_inputs, num_outputs, optimizer_type, optimizer_args={},
-                     network_layer_info_list=[], conv_layer_info_list=[]):
         self.network_layers = []
         self.optimizer_init(optimizer_type, optimizer_args)
         for idx, conv_layer_info in enumerate(conv_layer_info_list):
-            if idx == 0:
-                conv_layer_info.update({'num_inputs': num_inputs})
-            conv_layer = ConvNetworkLayer(conv_layer_info)
-            self.network_layers.append(conv_layer)
+            input_shape = (num_inputs, ) if idx == 0 else None
+            num_dimensions = conv_layer_info['num_dimensions']
+            num_filters = conv_layer_info['num_filters']
+            kernel_size = conv_layer_info['kernel_size']
+            strides = conv_layer_info['strides']
+            is_transpose = conv_layer_info['is_transpose'] if 'is_transpose' in conv_layer_info else False
+            activation_function = conv_layer_info['activation_function'] if 'activation_function' in conv_layer_info else None
+            kernel_initializer = conv_layer_info['kernel_initializer'] if 'kernel_initializer' in conv_layer_info else NetworkInitializationType.ZEROS
+            bias_initializer = conv_layer_info['bias_initializer'] if 'bias_initializer' in conv_layer_info else NetworkInitializationType.ZEROS
+            use_bias = conv_layer_info['use_bias'] if 'use_bias' in args else True
+            self.network_layers.append(ConvNetworkLayer(num_dimensions, num_filters, kernel_size, strides, is_transpose, activation_function, kernel_initializer, bias_initializer, use_bias, input_shape))
         self.network_layers.append(Flatten())
-        for idx, network_layer_info in enumerate(network_layer_info_list):
-            if idx == len(network_layer_info_list) - 1:
-                network_layer_info.update({'num_units': num_outputs})
-            if 'num_units' not in network_layer_info or network_layer_info['num_units'].lower() == 'auto':
-                network_layer_info.update({'num_units': int(np.sqrt(num_inputs * num_outputs))})
-            dense_layer = DenseNetworkLayer(network_layer_info)
-            self.network_layers.append(dense_layer)
+        self.parse_dense_layer_info(num_inputs, num_outputs, args['dense_layer_info_list'] if 'dense_layer_info_list' else [], False)
         self.build_model()
+

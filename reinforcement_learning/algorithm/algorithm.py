@@ -32,14 +32,14 @@ class Algorithm:
             pass
         self.iterator = TargetValuePredictor(csv_dir, state_dim, self, self.policy, dl_args)
 
-    def calculate_target_value(self, a, s_, r, active, policy_network, target_network=None):
+    def calculate_target_value(self, a, s_, r, active, policy_network, target_network):
         a_ = self.get_potential_action(target_network, s_,
                                        a) if target_network is not None else self.get_potential_action(policy_network,
                                                                                                        s_, a)
         return r + (self.discount_factor * self.get_scalar(s_, a_, policy_network) * active)
 
-    def get_target_value(self, s, a, s_, r, active, network):
-        target_value = self.calculate_target_value(a, s_, r, active, network)
+    def get_target_value(self, s, a, s_, r, active, policy_network, target_network):
+        target_value = self.calculate_target_value(a, s_, r, active, policy_network, target_network)
         if self.enable_iterator:
             predicted_value = self.iterator.get_target_value(s, a)
             self.iterator.update_predictor(s, a, target_value)
@@ -64,4 +64,7 @@ class Algorithm:
             return np.dot(policy_mat, q_mat.T)[0]
         else:
             q_mat = network.get_action_values(s)
-            return q_mat[0, a]
+            try:
+                return q_mat[0, a]
+            except IndexError as e:
+                return q_mat[a]
