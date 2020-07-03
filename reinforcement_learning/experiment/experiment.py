@@ -305,7 +305,7 @@ class Experiment:
             agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
             if not isdir(agent_dir):
                 mkdir(agent_dir)
-            if learning_type == LearningType.Replay:
+            if learning_type == LearningType.REPLAY:
                 agent.buffer_init(run_info['num_replay'], run_info['buffer_size'], run_info['mini_batch_size'],
                                   random_seed)
             if enable_action_blocking:
