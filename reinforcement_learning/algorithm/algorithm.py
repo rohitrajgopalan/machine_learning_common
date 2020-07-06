@@ -30,7 +30,7 @@ class Algorithm:
     def iterator_init(self, csv_dir, state_dim, dl_args=None):
         if not self.enable_iterator:
             pass
-        self.iterator = TargetValuePredictor(csv_dir, state_dim, self, self.policy, dl_args)
+        self.iterator = TargetValuePredictor(csv_dir, state_dim, self, dl_args)
 
     def calculate_target_value(self, a, s_, r, active, policy_network, target_network):
         a_ = self.get_potential_action(target_network, s_,

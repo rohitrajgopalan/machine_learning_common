@@ -99,13 +99,13 @@ class Experiment:
                                                                         'GAMMA': run_info['algorithm_args']['discount_factor'],
                                                                         'ENABLE_ACTION_BLOCKING': 'Yes' if run_info['enable_action_blocking'] else 'No',
                                                                         'ACTION_BLOCKING_HELPER': 'Scikit-Learn' if run_info['action_blocking_dl_args'] is None else 'Deep-Learning',
-                                                                        'ENABLE_REGRESSOR': 'Yes' if run_info['algorithm_args']['enable_regressor'] else 'No',
+                                                                        'ENABLE_ITERATOR': 'Yes' if run_info['algorithm_args']['enable_iterator'] else 'No',
                                                                         'ITERATOR_HELPER': 'Scikit-Learn' if run_info['regression_dl_args'] is None else 'Deep-Learning',
                                                                         'OPTIMIZER': run_info['action_network_args']['optimizer_type'],
-                                                                        'ALPHA': run_info['action_network_args'][ 'optimizer_args']['learning_rate'],
-                                                                        'BETA_V': run_info['action_network_args']['beta_v'],
-                                                                        'BETA_M': run_info['action_network_args']['beta_m'],
-                                                                        'EPSILON': run_info['action_network_args']['epsilon'],
+                                                                        'ALPHA': run_info['action_network_args']['optimizer_args']['learning_rate'],
+                                                                        'BETA_V': run_info['action_network_args']['optimizer_args']['beta_v'],
+                                                                        'BETA_M': run_info['action_network_args']['optimizer_args']['beta_m'],
+                                                                        'EPSILON': run_info['action_network_args']['optimizer_args']['epsilon'],
                                                                         'NUM_REPLAY': run_info['num_replay'] if 'num_replay' in run_info else 0,
                                                                         'BUFFER_SIZE': run_info['buffer_size'] if 'buffer_size' in run_info else 0,
                                                                         'MINI_BATCH_SIZE': run_info['mini_batch_size'] if 'mini_batch_size' in run_info else 0,
@@ -116,7 +116,11 @@ class Experiment:
                                                                        ignore_index=True)
 
         actions_dir = join(self.output_dir, 'actions')
+        if not isdir(actions_dir):
+            mkdir(actions_dir)
         final_policy_dir = join(self.output_dir, 'final_policy')
+        if not isdir(final_policy_dir):
+            mkdir(final_policy_dir)
 
         for agent in agents:
             agent_folder = 'agent_{0}'.format(agent.agent_id)
@@ -252,6 +256,7 @@ class Experiment:
                                                 for enable_action_blocking in chosen_action_blockers:
                                                     run_info['enable_action_blocking'] = enable_action_blocking
                                                     for learning_type in chosen_learning_types:
+                                                        run_info['learning_type'] = learning_type
                                                         for is_double_agent in chosen_double_agent_flags:
                                                             agents = []
                                                             for i, agent_info in enumerate(agents_info_list):
