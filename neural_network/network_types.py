@@ -29,12 +29,14 @@ class NetworkActivationFunction(enum.Enum):
     TANH = 5,
     LEAKY_RELU = 6,
     SOFTMAX = 7,
-    SWISH = 8
+    SWISH = 8,
+    LINEAR = 9
 
     @staticmethod
     def all():
         return [NetworkActivationFunction.ELU,
                 NetworkActivationFunction.LEAKY_RELU,
+                NetworkActivationFunction.LINEAR,
                 NetworkActivationFunction.RELU,
                 NetworkActivationFunction.SIGMOID,
                 NetworkActivationFunction.SOFTMAX,
