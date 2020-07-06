@@ -1,4 +1,4 @@
-from .base_policy import Policy
+from .policy import Policy
 from .epsilon_greedy import EpsilonGreedy
 from .softmax import Softmax
 from .static import StaticPolicy
@@ -6,9 +6,7 @@ from .thompson_sampling import ThompsonSampling
 from .ucb import UCB
 
 
-def choose_policy(policy_name, args=None):
-    if args is None:
-        args = {}
+def choose_policy(policy_name, args={}):
     if policy_name == 'epsilon_greedy':
         return EpsilonGreedy(args)
     elif policy_name == 'softmax':

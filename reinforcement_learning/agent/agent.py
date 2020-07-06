@@ -95,7 +95,6 @@ class Agent:
         self.historical_data_columns.append('ALGORITHM')
         self.historical_data_columns.append('GAMMA')
         self.historical_data_columns.append('POLICY')
-        self.historical_data_columns.append('NETWORK_TYPE')
         self.historical_data_columns.append('HYPERPARAMETER')
         self.historical_data_columns.append('TARGET_VALUE')
         self.historical_data_columns.append('BLOCKED?')

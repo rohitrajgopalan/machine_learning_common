@@ -263,7 +263,7 @@ class Experiment:
                                                                 policy_args.update(
                                                                     {'num_actions': len(agent_info['actions'])})
                                                                 run_info['policy_args'] = policy_args
-                                                                policy = choose_policy(policy_args)
+                                                                policy = choose_policy(policy_name, policy_args)
                                                                 algorithm_args['policy'] = policy
                                                                 algorithm = Algorithm(algorithm_args)
                                                                 agent_info.update({'algorithm': algorithm})

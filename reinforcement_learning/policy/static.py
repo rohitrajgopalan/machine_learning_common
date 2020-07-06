@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from reinforcement_learning.policy.base_policy import Policy
+from .policy import Policy
 
 
 class StaticPolicy(Policy):
