@@ -164,8 +164,7 @@ class Agent:
             self.actions = actions_from_csv
 
     def add_action(self, action):
-        if action not in self.actions:
-            self.actions.append(action)
+        self.actions.append(action)
         self.policy_network.add_action()
         if self.is_double_agent:
             self.target_network.add_action()
