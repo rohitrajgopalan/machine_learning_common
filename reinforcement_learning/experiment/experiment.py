@@ -22,11 +22,13 @@ class Experiment:
     agents_data = None
     action_cols = ['ID', 'ACTION', 'TYPE']
     output_dir = ''
+    dt_str = ''
 
     def __init__(self, output_dir):
         self.hyper_parameters_data = pd.DataFrame(columns=self.cols)
         self.output_dir = output_dir
         self.agents_data = pd.DataFrame(columns=self.agent_cols)
+        self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
 
     def choose_from_options(self, all_possible_options, chosen_types, key):
         chosen_options = []
@@ -288,6 +290,8 @@ class Experiment:
                                                                 agents, run_times, time_steps = self.perform_run(run_info)
                                                                 self.process_run(run_info, agents, run_times,time_steps)
 
+        self.hyper_parameters_data.to_csv('run_summary_{0}.csv'.format(self.dt_str),index=False)
+        self.agents_data.to_csv('agents_data_{0}.csv'.format(self.dt_str),index=False)
     def perform_run(self, run_info={}):
         agents = run_info['agents']
         random_seed = run_info['random_seed'] if 'random_seed' in run_info else 0
