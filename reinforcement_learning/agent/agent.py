@@ -205,7 +205,7 @@ class Agent:
             self.current_state = self.next_state
 
     def add_to_supervised_learning(self, r):
-        blocked_boolean = 1 if r <= self.algorithm.policy.min_penalty * -1 else 0
+        blocked_boolean = 1 if r <= (self.algorithm.policy.min_penalty * -1) else 0
         if self.enable_action_blocking:
             self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
         new_data = {}
