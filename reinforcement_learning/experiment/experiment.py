@@ -1,4 +1,5 @@
 import enum
+import os
 from datetime import datetime
 from os import mkdir
 from os.path import join, isdir
@@ -98,19 +99,34 @@ class Experiment:
                                                                         'ALGORITHM': run_info['algorithm_name'],
                                                                         'POLICY': run_info['policy_name'],
                                                                         'HYPER_PARAMETER': hyper_parameter_val,
-                                                                        'GAMMA': run_info['algorithm_args']['discount_factor'],
-                                                                        'ENABLE_ACTION_BLOCKING': 'Yes' if run_info['enable_action_blocking'] else 'No',
-                                                                        'ACTION_BLOCKING_HELPER': 'Scikit-Learn' if run_info['action_blocking_dl_args'] is None else 'Deep-Learning',
-                                                                        'ENABLE_ITERATOR': 'Yes' if run_info['algorithm_args']['enable_iterator'] else 'No',
-                                                                        'ITERATOR_HELPER': 'Scikit-Learn' if run_info['regression_dl_args'] is None else 'Deep-Learning',
-                                                                        'OPTIMIZER': run_info['action_network_args']['optimizer_type'],
-                                                                        'ALPHA': run_info['action_network_args']['optimizer_args']['learning_rate'],
-                                                                        'BETA_V': run_info['action_network_args']['optimizer_args']['beta_v'],
-                                                                        'BETA_M': run_info['action_network_args']['optimizer_args']['beta_m'],
-                                                                        'EPSILON': run_info['action_network_args']['optimizer_args']['epsilon'],
-                                                                        'NUM_REPLAY': run_info['num_replay'] if 'num_replay' in run_info else 0,
-                                                                        'BUFFER_SIZE': run_info['buffer_size'] if 'buffer_size' in run_info else 0,
-                                                                        'MINI_BATCH_SIZE': run_info['mini_batch_size'] if 'mini_batch_size' in run_info else 0,
+                                                                        'GAMMA': run_info['algorithm_args'][
+                                                                            'discount_factor'],
+                                                                        'ENABLE_ACTION_BLOCKING': 'Yes' if run_info[
+                                                                            'enable_action_blocking'] else 'No',
+                                                                        'ACTION_BLOCKING_HELPER': 'Scikit-Learn' if
+                                                                        run_info[
+                                                                            'action_blocking_dl_args'] is None else 'Deep-Learning',
+                                                                        'ENABLE_ITERATOR': 'Yes' if
+                                                                        run_info['algorithm_args'][
+                                                                            'enable_iterator'] else 'No',
+                                                                        'ITERATOR_HELPER': 'Scikit-Learn' if run_info[
+                                                                                                                 'regression_dl_args'] is None else 'Deep-Learning',
+                                                                        'OPTIMIZER': run_info['action_network_args'][
+                                                                            'optimizer_type'],
+                                                                        'ALPHA': run_info['action_network_args'][
+                                                                            'optimizer_args']['learning_rate'],
+                                                                        'BETA_V': run_info['action_network_args'][
+                                                                            'optimizer_args']['beta_v'],
+                                                                        'BETA_M': run_info['action_network_args'][
+                                                                            'optimizer_args']['beta_m'],
+                                                                        'EPSILON': run_info['action_network_args'][
+                                                                            'optimizer_args']['epsilon'],
+                                                                        'NUM_REPLAY': run_info[
+                                                                            'num_replay'] if 'num_replay' in run_info else 0,
+                                                                        'BUFFER_SIZE': run_info[
+                                                                            'buffer_size'] if 'buffer_size' in run_info else 0,
+                                                                        'MINI_BATCH_SIZE': run_info[
+                                                                            'mini_batch_size'] if 'mini_batch_size' in run_info else 0,
                                                                         'MAX_RUNTIME': np.max(run_times),
                                                                         'AVG_RUNTIME': np.mean(run_times),
                                                                         'MAX_TIME_STEP': np.max(time_steps),
@@ -182,7 +198,8 @@ class Experiment:
         num_episodes = specifics['num_episodes']
         environment = specifics['environment']
         random_seed = specifics['seed'] if 'seed' in specifics else 0
-        action_blocking_dl_args = specifics['action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
+        action_blocking_dl_args = specifics[
+            'action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
         regression_dl_args = specifics['regression_dl_args'] if 'regression_dl_args' in specifics else None
         run_info = {'environment': environment,
                     'num_episodes': num_episodes,
@@ -190,14 +207,16 @@ class Experiment:
         # Process Experimental Parameters
         chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
         chosen_algorithms = self.choose_from_enums(AlgorithmName.all(), experimental_parameters, 'algorithm_names')
-        chosen_policies = self.choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb'], experimental_parameters, 'policies')
+        chosen_policies = self.choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb'],
+                                                   experimental_parameters, 'policies')
         chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
         chosen_enable_regressors = self.create_boolean_list(experimental_parameters, 'enable_regressors')
         chosen_double_agent_flags = self.create_boolean_list(experimental_parameters, 'enable_double_learning')
         chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
         policy_hyper_parameters = experimental_parameters['policy_hyper_parameters']
         algorithm_hyper_parameters = experimental_parameters['algorithm_hyper_parameters']
-        replay_buffer_hyper_parameters = experimental_parameters['replay_buffer_hyper_parameters'] if 'replay_buffer_hyper_parameters' in experimental_parameters else {}
+        replay_buffer_hyper_parameters = experimental_parameters[
+            'replay_buffer_hyper_parameters'] if 'replay_buffer_hyper_parameters' in experimental_parameters else {}
         if 'alphas' not in algorithm_hyper_parameters or len(algorithm_hyper_parameters['alphas']) == 0:
             algorithm_hyper_parameters['alphas'] = [0.001]
         if 'gammas' not in algorithm_hyper_parameters or len(algorithm_hyper_parameters['gammas']) == 0:
@@ -228,7 +247,9 @@ class Experiment:
                                 action_blocking_dl_args['optimizer_args'] = optimizer_args
                             if regression_dl_args is not None:
                                 regression_dl_args['optimizer_args'] = optimizer_args
-                            run_info.update({'action_network_args': action_network_args, 'action_blocking_dl_args': action_blocking_dl_args, 'regression_dl_args': regression_dl_args})
+                            run_info.update({'action_network_args': action_network_args,
+                                             'action_blocking_dl_args': action_blocking_dl_args,
+                                             'regression_dl_args': regression_dl_args})
                             for algorithm_name in chosen_algorithms:
                                 run_info['algorithm_name'] = algorithm_name
                                 algorithm_args = {'algorithm_name': algorithm_name}
@@ -250,7 +271,8 @@ class Experiment:
                                                 policy_hyper_parameter_list = policy_hyper_parameters['taus']
                                                 hyper_parameter_type = 'tau'
                                             elif policy_name == 'ucb':
-                                                policy_hyper_parameter_list = policy_hyper_parameters['confidence_factors']
+                                                policy_hyper_parameter_list = policy_hyper_parameters[
+                                                    'confidence_factors']
                                                 hyper_parameter_type = 'ucb_c'
                                             for policy_hyper_parameter in policy_hyper_parameter_list:
                                                 if len(hyper_parameter_type) > 0:
@@ -267,7 +289,8 @@ class Experiment:
                                                                                    'learning_type': learning_type,
                                                                                    'state_dim': environment.required_state_dim,
                                                                                    'enable_action_blocking': enable_action_blocking})
-                                                                policy_args.update({'num_actions': len(agent_info['actions'])})
+                                                                policy_args.update(
+                                                                    {'num_actions': len(agent_info['actions'])})
                                                                 run_info['policy_args'] = policy_args
                                                                 policy = choose_policy(policy_name, policy_args)
                                                                 algorithm_args['policy'] = policy
@@ -283,14 +306,21 @@ class Experiment:
                                                                         run_info['buffer_size'] = buffer_size
                                                                         for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
                                                                             run_info['mini_batch_size'] = mini_batch_size
-                                                                            agents, run_times, time_steps = self.perform_run(run_info)
-                                                                            self.process_run(run_info, agents, run_times, time_steps)
+                                                                            agents, run_times, time_steps = self.perform_run(
+                                                                                run_info)
+                                                                            self.process_run(run_info, agents,
+                                                                                             run_times, time_steps)
                                                             else:
-                                                                agents, run_times, time_steps = self.perform_run(run_info)
-                                                                self.process_run(run_info, agents, run_times,time_steps)
+                                                                agents, run_times, time_steps = self.perform_run(
+                                                                    run_info)
+                                                                self.process_run(run_info, agents, run_times,
+                                                                                 time_steps)
 
-        self.hyper_parameters_data.to_csv('run_summary_{0}.csv'.format(self.dt_str),index=False)
-        self.agents_data.to_csv('agents_data_{0}.csv'.format(self.dt_str),index=False)
+        self.hyper_parameters_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'run_summary_{0}.csv'.format(self.dt_str))), index=False)
+        self.hyper_parameters_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'agents_data_{0}.csv'.format(self.dt_str))), index=False)
+
     def perform_run(self, run_info={}):
         agents = run_info['agents']
         random_seed = run_info['random_seed'] if 'random_seed' in run_info else 0
