@@ -35,9 +35,9 @@ class Experiment:
 
         if key in chosen_types:
             if type(chosen_types[key]) == str:
-                if chosen_types[key] == 'all':
+                if chosen_types[key].lower() == 'all':
                     chosen_options = all_possible_options
-                elif chosen_types[key] in all_possible_options:
+                elif chosen_types[key].lower() in all_possible_options:
                     chosen_options = [chosen_types[key]]
             elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
                 chosen_options = chosen_types[key]
@@ -51,7 +51,7 @@ class Experiment:
 
         if key in chosen_types:
             if type(chosen_types[key]) == str:
-                if chosen_types[key].lower() == 'all':
+                if chosen_types[key] == 'all':
                     chosen_options = all_possible_options
                 else:
                     for some_type in all_possible_options:
@@ -208,53 +208,53 @@ class Experiment:
             algorithm_hyper_parameters['beta_vs'] = [0.99]
         if 'epsilons' not in algorithm_hyper_parameters or len(algorithm_hyper_parameters['epsilons']) == 0:
             algorithm_hyper_parameters['epsilons'] = [1e-07]
-        for policy_name in chosen_policies:
-            run_info['policy_name'] = policy_name
-            policy_args = {'random_seed': random_seed,
-                           'min_penalty': environment.min_penalty}
-            policy_hyper_parameter_list = [0]
-            hyper_parameter_type = ''
-            if policy_name == 'epsilon_greedy':
-                policy_hyper_parameter_list = policy_hyper_parameters['epsilons']
-                hyper_parameter_type = 'epsilon'
-            elif policy_name == 'softmax':
-                policy_hyper_parameter_list = policy_hyper_parameters['taus']
-                hyper_parameter_type = 'tau'
-            elif policy_name == 'ucb':
-                policy_hyper_parameter_list = policy_hyper_parameters['confidence_factors']
-                hyper_parameter_type = 'ucb_c'
-            for policy_hyper_parameter in policy_hyper_parameter_list:
-                if len(hyper_parameter_type) > 0:
-                    policy_args[hyper_parameter_type] = policy_hyper_parameter
-                for optimizer_type in chosen_optimizers:
-                    action_network_args.update({'optimizer_type': optimizer_type})
-                    if action_blocking_dl_args is not None:
-                        action_blocking_dl_args['optimizer_type'] = optimizer_type
-                    if regression_dl_args is not None:
-                        regression_dl_args['optimizer_type'] = optimizer_type
-                    optimizer_args = {}
-                    for learning_rate in algorithm_hyper_parameters['alphas']:
-                        optimizer_args['learning_rate'] = learning_rate
-                        for beta_m in algorithm_hyper_parameters['beta_ms']:
-                            optimizer_args['beta_m'] = beta_m
-                            for beta_v in algorithm_hyper_parameters['beta_vs']:
-                                optimizer_args['beta_v'] = beta_v
-                                for epsilon in algorithm_hyper_parameters['epsilons']:
-                                    optimizer_args['epsilon'] = epsilon
-                                    action_network_args['optimizer_args'] = optimizer_args
-                                    if action_blocking_dl_args is not None:
-                                        action_blocking_dl_args['optimizer_args'] = optimizer_args
-                                    if regression_dl_args is not None:
-                                        regression_dl_args['optimizer_args'] = optimizer_args
-                                    run_info.update({'action_network_args': action_network_args, 'action_blocking_dl_args': action_blocking_dl_args, 'regression_dl_args': regression_dl_args})
-                                    for algorithm_name in chosen_algorithms:
-                                        run_info['algorithm_name'] = algorithm_name
-                                        algorithm_args = {'algorithm_name': algorithm_name}
-                                        for discount_factor in algorithm_hyper_parameters['gammas']:
-                                            algorithm_args['discount_factor'] = discount_factor
-                                            for enable_regressor in chosen_enable_regressors:
-                                                algorithm_args['enable_iterator'] = enable_regressor
-                                                run_info['algorithm_args'] = algorithm_args
+        for optimizer_type in chosen_optimizers:
+            action_network_args.update({'optimizer_type': optimizer_type})
+            if action_blocking_dl_args is not None:
+                action_blocking_dl_args['optimizer_type'] = optimizer_type
+            if regression_dl_args is not None:
+                regression_dl_args['optimizer_type'] = optimizer_type
+            optimizer_args = {}
+            for learning_rate in algorithm_hyper_parameters['alphas']:
+                optimizer_args['learning_rate'] = learning_rate
+                for beta_m in algorithm_hyper_parameters['beta_ms']:
+                    optimizer_args['beta_m'] = beta_m
+                    for beta_v in algorithm_hyper_parameters['beta_vs']:
+                        optimizer_args['beta_v'] = beta_v
+                        for epsilon in algorithm_hyper_parameters['epsilons']:
+                            optimizer_args['epsilon'] = epsilon
+                            action_network_args['optimizer_args'] = optimizer_args
+                            if action_blocking_dl_args is not None:
+                                action_blocking_dl_args['optimizer_args'] = optimizer_args
+                            if regression_dl_args is not None:
+                                regression_dl_args['optimizer_args'] = optimizer_args
+                            run_info.update({'action_network_args': action_network_args, 'action_blocking_dl_args': action_blocking_dl_args, 'regression_dl_args': regression_dl_args})
+                            for algorithm_name in chosen_algorithms:
+                                run_info['algorithm_name'] = algorithm_name
+                                algorithm_args = {'algorithm_name': algorithm_name}
+                                for discount_factor in algorithm_hyper_parameters['gammas']:
+                                    algorithm_args['discount_factor'] = discount_factor
+                                    for enable_regressor in chosen_enable_regressors:
+                                        algorithm_args['enable_iterator'] = enable_regressor
+                                        run_info['algorithm_args'] = algorithm_args
+                                        for policy_name in chosen_policies:
+                                            run_info['policy_name'] = policy_name
+                                            policy_args = {'random_seed': random_seed,
+                                                           'min_penalty': environment.min_penalty}
+                                            policy_hyper_parameter_list = [0]
+                                            hyper_parameter_type = ''
+                                            if policy_name == 'epsilon_greedy':
+                                                policy_hyper_parameter_list = policy_hyper_parameters['epsilons']
+                                                hyper_parameter_type = 'epsilon'
+                                            elif policy_name == 'softmax':
+                                                policy_hyper_parameter_list = policy_hyper_parameters['taus']
+                                                hyper_parameter_type = 'tau'
+                                            elif policy_name == 'ucb':
+                                                policy_hyper_parameter_list = policy_hyper_parameters['confidence_factors']
+                                                hyper_parameter_type = 'ucb_c'
+                                            for policy_hyper_parameter in policy_hyper_parameter_list:
+                                                if len(hyper_parameter_type) > 0:
+                                                    policy_args[hyper_parameter_type] = policy_hyper_parameter
                                                 for enable_action_blocking in chosen_action_blockers:
                                                     run_info['enable_action_blocking'] = enable_action_blocking
                                                     for learning_type in chosen_learning_types:
@@ -267,8 +267,7 @@ class Experiment:
                                                                                    'learning_type': learning_type,
                                                                                    'state_dim': environment.required_state_dim,
                                                                                    'enable_action_blocking': enable_action_blocking})
-                                                                policy_args.update(
-                                                                    {'num_actions': len(agent_info['actions'])})
+                                                                policy_args.update({'num_actions': len(agent_info['actions'])})
                                                                 run_info['policy_args'] = policy_args
                                                                 policy = choose_policy(policy_name, policy_args)
                                                                 algorithm_args['policy'] = policy
