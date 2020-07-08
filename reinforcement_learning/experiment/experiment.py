@@ -51,18 +51,18 @@ class Experiment:
 
         if key in chosen_types:
             if type(chosen_types[key]) == str:
-                if chosen_types[key] == 'all':
+                if chosen_types[key].lower() == 'all':
                     chosen_options = all_possible_options
                 else:
                     for some_type in all_possible_options:
-                        if some_type.name.lower() == chosen_types[key]:
+                        if some_type.name.lower() == chosen_types[key].lower():
                             chosen_options = [some_type]
                             break
             elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
                 chosen_options = []
                 for item in chosen_types[key]:
                     for some_type in all_possible_options:
-                        if (type(item) == str and some_type.name.lower() == item) or type(
+                        if (type(item) == str and some_type.name.lower() == item.lower()) or type(
                                 item) == enum.Enum and item == some_type:
                             chosen_options.append(some_type)
                             break
