@@ -104,12 +104,6 @@ def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
     return pd.concat(df_from_each_file, ignore_index=True) if concat else df_from_each_file
 
 
-def load_from_directory(csv_dir, features=[], label='', filters={}, concat=False):
-    cols = features
-    cols.append(label)
-    return load_from_directory(csv_dir, cols, filters, concat)
-
-
 def perform_and_plot_experiment_on_data(csv_dir, methods):
     df_from_each_file = load_from_directory(csv_dir)
     results, test_sizes = perform_experiment_on_data(df_from_each_file, methods)
@@ -188,7 +182,9 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics=[
 
 
 def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', features=[], label='', filters={}):
-    df_from_each_file = load_from_directory(csv_dir, features, label, filters)
+    cols = features
+    cols.append(label)
+    df_from_each_file = load_from_directory(csv_dir, cols, filters)
     method_names = list(methods.keys())
     results, test_sizes = perform_experiment_on_data(df_from_each_file, methods)
     metrics_to_data, _ = shape_experimental_data_for_plotting(results, test_sizes, methods)
