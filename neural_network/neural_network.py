@@ -19,7 +19,7 @@ class NeuralNetwork:
         learning_rate = optimizer_args['learning_rate'] if 'learning_rate' in optimizer_args else 0.001
         beta_m = optimizer_args['beta_m'] if 'beta_m' in optimizer_args else 0.9
         beta_v = optimizer_args['beta_v'] if 'beta_v' in optimizer_args else 0.999
-        epsilon = optimizer_args['epsilon'] if 'epslion' in optimizer_args else 1e-07
+        epsilon = optimizer_args['epsilon'] if 'epsilon' in optimizer_args else 1e-07
 
         if optimizer_type == NetworkOptimizer.ADAMAX:
             self.optimizer = tf.keras.optimizers.Adamax(learning_rate, beta_m, beta_v, epsilon)
