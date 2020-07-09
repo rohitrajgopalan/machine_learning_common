@@ -318,7 +318,7 @@ class Experiment:
 
         self.hyper_parameters_data.to_csv(
             '{0}'.format(os.path.join(self.output_dir, 'run_summary_{0}.csv'.format(self.dt_str))), index=False)
-        self.hyper_parameters_data.to_csv(
+        self.agents_data.to_csv(
             '{0}'.format(os.path.join(self.output_dir, 'agents_data_{0}.csv'.format(self.dt_str))), index=False)
 
     def perform_run(self, run_info={}):
