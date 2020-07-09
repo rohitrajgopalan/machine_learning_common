@@ -7,8 +7,9 @@ class RLSupervisedHelper:
     supervised_learning_helper = None
 
     def __init__(self, method_type, csv_dir, state_dim, label, filters, dl_args=None):
+        self.state_dim = state_dim
         features = []
-        if state_dim == 1:
+        if self.state_dim == 1:
             features.append('STATE')
         else:
             for i in range(1, self.state_dim + 1):
