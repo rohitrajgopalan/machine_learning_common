@@ -41,8 +41,8 @@ class Algorithm:
     def get_target_value(self, s, a, s_, r, active, policy_network, target_network):
         target_value = self.calculate_target_value(a, s_, r, active, policy_network, target_network)
         if self.enable_iterator:
-            predicted_value = self.iterator.get_target_value(s, a)
-            self.iterator.update_predictor(s, a, target_value)
+            predicted_value = self.iterator.predict(s, a)
+            self.iterator.add(s, a, target_value)
             return predicted_value
         else:
             return target_value

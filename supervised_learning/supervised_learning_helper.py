@@ -4,8 +4,7 @@ import numpy as np
 import pandas as pd
 from neural_network.neural_network import NeuralNetwork
 
-from supervised_learning.common import randomly_select_classifier, randomly_select_regressor, select_best_regressor, \
-    select_best_classifier
+from .common import randomly_select_classifier, randomly_select_regressor, select_best_regressor, select_best_classifier
 
 
 class MethodType(enum.Enum):
@@ -21,17 +20,10 @@ class SupervisedLearningHelper:
     label = ''
     historical_data = None
 
-    def __init__(self, method_type, csv_dir, state_dim, label, filters={}):
+    def __init__(self, method_type, csv_dir, features, label, filters={}):
         self.method_type = method_type
         self.csv_dir = csv_dir
-        self.features = []
-        if state_dim == 1:
-            self.features.append('STATE')
-        else:
-            for i in range(1, self.state_dim + 1):
-                self.features.append('STATE_VAR{0}'.format(i))
-        self.features.append('INITIAL_ACTION')
-        self.state_dim = state_dim
+        self.features = features
         self.label = label
         self.filters = filters
         self.update()
@@ -43,13 +35,11 @@ class SupervisedLearningHelper:
     def update(self):
         pass
 
-    def add(self, state, action, target_value):
-        new_data = {'INITIAL_ACTION': action, self.label: target_value}
-        if self.state_dim == 1:
-            new_data.update({'STATE': state})
-        else:
-            for i in range(1, self.state_dim + 1):
-                new_data.update({'STATE_VAR{0}'.format(i): state[i]})
+    def add(self, feature_values_dict, target_value):
+        new_data = {self.label: target_value}
+        for feature in feature_values_dict:
+            if feature in self.features:
+                new_data.update({feature: feature_values_dict[feature]})
         self.historical_data = self.historical_data.append(new_data, ignore_index=True)
         x = self.historical_data[self.features]
         y = self.historical_data[self.label]
@@ -58,24 +48,15 @@ class SupervisedLearningHelper:
     def fit(self, x, y):
         pass
 
-    def predict(self, state, action):
-        if self.state_dim == 1:
-            input_x = [state]
-        else:
-            input_x = list(state)
-        input_x.append(action)
-        x = np.array([input_x])
-        return self.get_predictions(x)
-
     def get_predictions(self, inputs):
         return None
 
     @staticmethod
-    def choose_helper(method_type, csv_dir, state_dim, label, filters={}, dl_args=None):
+    def choose_helper(method_type, csv_dir, features, label, filters={}, dl_args=None):
         if dl_args is None:
-            return ScikitLearnHelper(method_type, csv_dir, state_dim, label, filters)
+            return ScikitLearnHelper(method_type, csv_dir, features, label, filters)
         else:
-            return DeepLearningHelper(method_type, csv_dir, state_dim, label, filters, dl_args)
+            return DeepLearningHelper(method_type, csv_dir, features, label, filters, dl_args)
 
 
 class ScikitLearnHelper(SupervisedLearningHelper):
@@ -103,13 +84,13 @@ class ScikitLearnHelper(SupervisedLearningHelper):
 class DeepLearningHelper(SupervisedLearningHelper):
     model = None
 
-    def __init__(self, method_type, csv_dir, state_dim, label, filters={}, dl_args={}):
-        dl_args.update({'num_inputs': state_dim, 'num_outputs': 1})
+    def __init__(self, method_type, csv_dir, features, label, filters={}, dl_args={}):
+        dl_args.update({'num_inputs': len(features), 'num_outputs': 1})
         self.model = NeuralNetwork.choose_neural_network(dl_args)
-        columns = self.features
-        columns.append(self.label)
+        columns = features
+        columns.append(label)
         self.model.load_data_from_directory(self.csv_dir, columns)
-        super().__init__(method_type, csv_dir, state_dim, label, filters)
+        super().__init__(method_type, csv_dir, features, label, filters)
 
     def fit(self, x, y):
         self.model.update_network(x, y)
