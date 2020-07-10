@@ -156,7 +156,6 @@ def run_with_different_classifiers(df_from_each_file, num_test_files):
                    'Area underneath the curve': []}
     scaler = RobustScaler()
     x_train = scaler.fit_transform(x_train)
-    x_test = scaler.fit_transform(x_test)
     for key in classifiers:
         scores = cross_validate(classifiers[key], x_train, y_train, scoring=scoring)
         sorted(scores.keys())

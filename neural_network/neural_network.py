@@ -34,12 +34,12 @@ class NeuralNetwork:
 
     def predict(self, inputs):
         if self.enable_scaler:
-            inputs = self.scaler.fit_transform(inputs)
+            inputs = self.scaler.fit_transform(inputs.reshape(1, -1))
         return self.model.predict(inputs)
 
     def update_network(self, inputs, outputs):
         if self.enable_scaler:
-            inputs = self.scaler.fit_transform(inputs)
+            inputs = self.scaler.fit_transform(inputs.reshape(1, -1))
         self.model.fit(inputs, outputs, verbose=0)
 
     def load_data_from_directory(self, csv_dir, cols=[]):
