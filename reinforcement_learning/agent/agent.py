@@ -238,8 +238,7 @@ class Agent:
         self.historical_data = self.historical_data.append(new_data, ignore_index=True)
 
     def choose_next_action(self):
-        action_values = self.policy_network.get_action_values(self.current_state)
-        self.initial_action = self.algorithm.policy.choose_action_based_from_values(action_values)
+        self.initial_action = self.algorithm.policy.choose_action(self.current_state, self.policy_network)
 
         if self.enable_action_blocking and self.initial_action is not None and self.action_blocker.should_we_block_action(
                 self.current_state,
