@@ -15,7 +15,8 @@ class RLSupervisedHelper:
             for i in range(1, self.state_dim + 1):
                 features.append('STATE_VAR{0}'.format(i))
         features.append('INITIAL_ACTION')
-        self.supervised_learning_helper = SupervisedLearningHelper.choose_helper(method_type, csv_dir, features, label, filters, dl_args)
+        self.supervised_learning_helper = SupervisedLearningHelper.choose_helper(method_type, csv_dir, features, label,
+                                                                                 filters, dl_args)
 
     def add(self, state, action, target_value):
         new_data = {'INITIAL_ACTION': action}

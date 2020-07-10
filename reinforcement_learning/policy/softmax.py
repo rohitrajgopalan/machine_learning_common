@@ -16,7 +16,12 @@ class Softmax(Policy):
             A 2D array of shape (batch_size, num_actions). Where each column is a probability distribution over
             the actions representing the policy.
         """
-        try:
+        if action_values.shape() == (0, 1):
+            preferences = np.zeros((1, self.num_actions)) / self.tau
+            exp_preferences = np.exp(preferences)
+            sum_of_exp_preferences = np.sum(exp_preferences, axis=1, keepdims=True)
+            return exp_preferences / sum_of_exp_preferences
+        else:
             # Compute the preferences by dividing the action-values by the temperature parameter tau
             preferences = action_values / self.tau
             # Compute the maximum preference across the actions
@@ -43,11 +48,6 @@ class Softmax(Policy):
             # the agent policy and it expects 1D arrays, we need to remove this singleton batch dimension.
             action_probs = action_probs.squeeze()
             return action_probs
-        except ValueError:
-            preferences = np.zeros((1, self.num_actions)) / self.tau
-            exp_preferences = np.exp(preferences)
-            sum_of_exp_preferences = np.sum(exp_preferences, axis=1, keepdims=True)
-            return exp_preferences / sum_of_exp_preferences
 
     def choose_action_based_from_values(self, action_values):
         probs_batch = self.derive_policy_based_from_values(action_values)
