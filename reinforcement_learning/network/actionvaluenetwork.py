@@ -8,6 +8,7 @@ class ActionValueNetwork:
     neural_network = None
 
     def __init__(self, args={}):
+        args.update({'loss_function': 'mse'})
         self.neural_network = NeuralNetwork.choose_neural_network(args)
 
     def get_action_values(self, s):

@@ -14,21 +14,21 @@ from sklearn.model_selection import cross_validate
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 warnings.filterwarnings('ignore')
 classifiers = {'Logistic Regression': LogisticRegression(),
                'Decision Tree': DecisionTreeClassifier(),
-               'Support Vector Machine': make_pipeline(StandardScaler(), SVC(gamma='auto', kernel='rbf')),
+               'Support Vector Machine': make_pipeline(RobustScaler(), SVC(gamma='auto', kernel='rbf')),
                'Linear Discriminant Analysis': LinearDiscriminantAnalysis(),
                'Quadratic Discriminant Analysis': QuadraticDiscriminantAnalysis(),
                'Random Forest': RandomForestClassifier(),
                'K-Nearest Neighbors': KNeighborsClassifier(),
                'Bayes': GaussianNB()}
 regressors = {'Decision Tree': DecisionTreeRegressor(),
-              'Support Vector Machine': make_pipeline(StandardScaler(), SVR(gamma='auto', kernel='rbf')),
+              'Support Vector Machine': make_pipeline(RobustScaler(), SVR(gamma='auto', kernel='rbf')),
               'RandomForest': RandomForestRegressor(),
               'K-Nearest Neighbour': KNeighborsRegressor(),
               'Lasso': Lasso(),
@@ -133,6 +133,9 @@ def run_with_different_methods(df_from_each_file, num_test_files, methods):
     models_data = {'Model': list(methods.keys()),
                    'Accuracy': []}
 
+    scaler = RobustScaler()
+    x_train = scaler.fit_transform(x_train)
+    x_test = scaler.fit_transform(x_test)
     for key in methods:
         methods[key].fit(x_train, y_train)
         accuracy = methods[key].score(x_test, y_test)
@@ -151,6 +154,9 @@ def run_with_different_classifiers(df_from_each_file, num_test_files):
                    'Recall': [],
                    'F1 score': [],
                    'Area underneath the curve': []}
+    scaler = RobustScaler()
+    x_train = scaler.fit_transform(x_train)
+    x_test = scaler.fit_transform(x_test)
     for key in classifiers:
         scores = cross_validate(classifiers[key], x_train, y_train, scoring=scoring)
         sorted(scores.keys())
