@@ -71,7 +71,15 @@ def plot_data(metrics_to_data, test_sizes, methods):
 
 
 def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
-    datasets = [join(csv_dir, f) for f in listdir(csv_dir) if isfile(join(csv_dir, f))]
+    all_csvs = listdir(csv_dir)
+    datasets = []
+    for csv in all_csvs:
+        try:
+            csv_path = join(csv_dir, csv)
+            if isfile(csv_path):
+                datasets.append(csv_path)
+        except WindowsError:
+            continue
 
     label = cols[len(cols) - 1]
 
@@ -85,8 +93,6 @@ def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
                 df = df.loc[df[key] == filters[key]]
                 if df is None:
                     break
-            if len(cols) > 0:
-                df = df[cols]
             if df is not None and len(df.index) > 0:
                 df_from_each_file.append(df)
 
@@ -100,13 +106,17 @@ def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
                 for i, unique_label in enumerate(unique_labels):
                     replace_dict.update({unique_label: i + 1})
             df.replace({label: replace_dict})
+        df_columns = df.columns
+        for col in df_columns:
+            if col not in cols:
+                df = df.drop(col, axis=1)
 
     return pd.concat(df_from_each_file, ignore_index=True) if concat else df_from_each_file
 
 
 def perform_and_plot_experiment_on_data(csv_dir, methods):
     df_from_each_file = load_from_directory(csv_dir)
-    results, test_sizes = perform_experiment_on_data(df_from_each_file, methods)
+    results, test_sizes = perform_experiment_on_data(df_from_each_file, methods, type)
     metrics_to_data, test_sizes = shape_experimental_data_for_plotting(results, test_sizes, methods)
     plot_data(metrics_to_data, test_sizes, methods)
 
@@ -119,12 +129,15 @@ def perform_and_plot_experiment_on_data_with_regressors(csv_dir):
     perform_and_plot_experiment_on_data(csv_dir, regressors)
 
 
-def perform_experiment_on_data(df_from_each_file, methods):
+def perform_experiment_on_data(df_from_each_file, methods, method_type):
     results = {}
     test_sizes = []
     for num_test_files in range(1, int(len(df_from_each_file) / 5) + 1):
         test_sizes.append(num_test_files)
-        results[num_test_files] = run_with_different_methods(df_from_each_file, num_test_files, methods)
+        if method_type == 'regression':
+            results[num_test_files] = run_with_different_methods(df_from_each_file, num_test_files, methods)
+        else:
+            results[num_test_files] = run_with_different_classifiers(df_from_each_file, num_test_files)
     return results, test_sizes
 
 
@@ -180,12 +193,13 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics=[
     return metrics_to_data, test_sizes
 
 
-def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', features=[], label='', filters={}):
+def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', features=[], label='', filters={},
+                       method_type='classification'):
     cols = features
     cols.append(label)
     df_from_each_file = load_from_directory(csv_dir, cols, filters)
     method_names = list(methods.keys())
-    results, test_sizes = perform_experiment_on_data(df_from_each_file, methods)
+    results, test_sizes = perform_experiment_on_data(df_from_each_file, methods, method_type)
     metrics_to_data, _ = shape_experimental_data_for_plotting(results, test_sizes, methods)
     if metric not in metrics_to_data:
         return None
@@ -208,11 +222,11 @@ def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', featur
 
 
 def select_best_classifier(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={}):
-    return select_best_method(csv_dir, classifiers, best_type, metric, features, label, filters)
+    return select_best_method(csv_dir, classifiers, best_type, metric, features, label, filters, 'classification')
 
 
 def select_best_regressor(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={}):
-    return select_best_method(csv_dir, regressors, best_type, metric, features, label, filters)
+    return select_best_method(csv_dir, regressors, best_type, metric, features, label, filters, 'regression')
 
 
 def randomly_select_method(methods):
