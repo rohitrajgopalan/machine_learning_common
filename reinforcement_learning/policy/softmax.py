@@ -15,9 +15,6 @@ class Softmax(Policy):
     def choose_action_based_from_values(self, action_values):
         probs_batch = self.derive_policy_based_from_values(action_values)
         try:
-            if self.num_actions == 1:
-                return 0
-            else:
-                return self.rand_generator.choice(self.num_actions, p=probs_batch.squeeze())
+            return self.rand_generator.choice(self.num_actions, p=probs_batch.squeeze()) if self.num_actions > 1 else 0
         except TypeError:
-            return self.rand_generator.choice(self.num_actions, p=probs_batch)
+            return self.rand_generator.choice(self.num_actions, p=probs_batch) if self.num_actions > 1 else 0
