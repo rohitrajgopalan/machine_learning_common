@@ -26,7 +26,7 @@ class ThompsonSampling(Policy):
         return policy_probs
 
     def choose_action_based_from_values(self, action_values):
-        return self.argmax(self.generate_theta())
+        return self.argmax(self.generate_theta()) if self.num_actions > 1 else 0
 
     def update(self, action, reward):
         r = 0

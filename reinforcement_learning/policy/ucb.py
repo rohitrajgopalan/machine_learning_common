@@ -26,7 +26,7 @@ class UCB(Policy):
         return policy_probs
 
     def choose_action_based_from_values(self, action_values):
-        return self.argmax(action_values + self.generate_confidence())
+        return self.argmax(action_values + self.generate_confidence()) if self.num_actions > 1 else 0
 
     def update(self, action, reward):
         self.N[action] += 1

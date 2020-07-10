@@ -19,7 +19,10 @@ class EpsilonGreedy(Policy):
         return policy_probs
 
     def choose_action_based_from_values(self, action_values):
-        if self.rand_generator.rand() < self.epsilon:
-            return self.rand_generator.choice(self.num_actions)
+        if self.num_actions == 1:
+            return 0
         else:
-            return self.argmax(action_values)
+            if self.rand_generator.rand() < self.epsilon:
+                return self.rand_generator.choice(self.num_actions)
+            else:
+                return self.argmax(action_values)
