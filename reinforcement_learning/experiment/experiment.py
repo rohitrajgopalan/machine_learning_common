@@ -96,7 +96,7 @@ class Experiment:
         elif run_info['policy_name'] == 'ucb':
             hyper_parameter_val = run_info['policy_args']['ucb_c']
         self.hyper_parameters_data = self.hyper_parameters_data.append({'LEARNING_TYPE': run_info['learning_type'].name,
-                                                                        'ALGORITHM': run_info['algorithm_name'],
+                                                                        'ALGORITHM': run_info['algorithm_name'].name,
                                                                         'POLICY': run_info['policy_name'],
                                                                         'HYPER_PARAMETER': hyper_parameter_val,
                                                                         'GAMMA': run_info['algorithm_args'][
@@ -112,7 +112,7 @@ class Experiment:
                                                                         'ITERATOR_HELPER': 'Scikit-Learn' if run_info[
                                                                                                                  'regression_dl_args'] is None else 'Deep-Learning',
                                                                         'OPTIMIZER': run_info['action_network_args'][
-                                                                            'optimizer_type'],
+                                                                            'optimizer_type'].name,
                                                                         'ALPHA': run_info['action_network_args'][
                                                                             'optimizer_args']['learning_rate'],
                                                                         'BETA_V': run_info['action_network_args'][
@@ -179,8 +179,8 @@ class Experiment:
                 if agent.state_dim == 1:
                     new_data.update({'STATE': state})
                 else:
-                    for i in range(1, agent.state_dim + 1):
-                        new_data.update({'STATE_VAR{0}'.format(i): state[i]})
+                    for i in range(agent.state_dim):
+                        new_data.update({'STATE_VAR{0}'.format(i+1): state[i]})
                 for action in final_policy[state]:
                     new_data.update({'ACTION': action})
                     agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
