@@ -21,7 +21,11 @@ class ActionValueNetwork:
             The action-values (Numpy array) calculated using the network's weights.
         """
         try:
-            return np.array([self.neural_network.predict(np.array([s]))]).reshape((1, self.num_actions))
+            initial_prediction = np.array([self.neural_network.predict(np.array([s]))])
+            if initial_prediction.shape[1] == 0:
+                return np.zeros((1, self.num_actions))
+            else:
+                return initial_prediction
         except ValueError as e:
             return np.zeros((1, self.num_actions))
 

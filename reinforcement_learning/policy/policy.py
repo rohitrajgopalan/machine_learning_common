@@ -31,14 +31,18 @@ class Policy:
         return self.rand_generator.choice(ties)
 
     def derive(self, state, network):
-        action_values = network.get_action_values(state).reshape((1, self.num_actions))
+        action_values = network.get_action_values(state)
+        if action_values.shape[1] == 0:
+            action_values = np.zeros((1, self.num_actions))
         return self.derive_policy_based_from_values(action_values)
 
     def derive_policy_based_from_values(self, action_values):
-        return np.zeros((1, self.num_actions))
+        return np.zeros(self.num_actions)
 
     def choose_action(self, state, network):
-        action_values = network.get_action_values(state).reshape((1, self.num_actions))
+        action_values = network.get_action_values(state)
+        if action_values.shape[1] == 0:
+            action_values = np.zeros((1, self.num_actions))
         return self.choose_action_based_from_values(action_values)
 
     def choose_action_based_from_values(self, action_values):
