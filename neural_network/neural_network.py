@@ -9,9 +9,7 @@ class NeuralNetwork:
     model = None
     network_layers = None
     optimizer = None
-    scaler = RobustScaler()
     loss_function = ''
-    enable_scaler = True
 
     def build_model(self):
         self.model = tf.keras.models.Sequential()
@@ -33,13 +31,9 @@ class NeuralNetwork:
             self.optimizer = tf.keras.optimizers.Adam(learning_rate, beta_m, beta_v, epsilon)
 
     def predict(self, inputs):
-        if self.enable_scaler:
-            inputs = self.scaler.fit_transform(inputs.reshape(1, -1))
         return self.model.predict(inputs)
 
     def update_network(self, inputs, outputs):
-        if self.enable_scaler:
-            inputs = self.scaler.fit_transform(inputs.reshape(1, -1))
         self.model.fit(inputs, outputs, verbose=0)
 
     def load_data_from_directory(self, csv_dir, cols=[]):
@@ -88,7 +82,6 @@ class ObservationNeuralNetwork(NeuralNetwork):
         optimizer_args = args['optimizer_args'] if 'optimizer_args' in args else {}
         if 'loss_function' in args:
             self.loss_function = args['loss_function']
-        self.enable_scaler = args['enable_scaler'] if 'enable_scaler' in args else True
         self.optimizer_init(optimizer_type, optimizer_args)
         if 'dense_layer_info_list' in args:
             self.parse_dense_layer_info(num_inputs, num_outputs, args['dense_layer_info_list'])
@@ -113,7 +106,6 @@ class ObservationNeuralNetwork(NeuralNetwork):
 
 
 class ImageFrameNeuralNetwork(NeuralNetwork):
-
     def __init__(self, args={}):
         self.network_layers = []
         num_inputs = args['num_inputs']
@@ -125,7 +117,6 @@ class ImageFrameNeuralNetwork(NeuralNetwork):
         self.optimizer_init(optimizer_type, optimizer_args)
         if 'loss_function' in args:
             self.loss_function = args['loss_function']
-        self.enable_scaler = args['enable_scaler'] if 'enable_scaler' in args else True
         for idx, conv_layer_info in enumerate(conv_layer_info_list):
             input_shape = (num_inputs,) if idx == 0 else None
             num_dimensions = conv_layer_info['num_dimensions']

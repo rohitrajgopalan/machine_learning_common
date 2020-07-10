@@ -132,10 +132,6 @@ def run_with_different_methods(df_from_each_file, num_test_files, methods):
     x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, num_test_files)
     models_data = {'Model': list(methods.keys()),
                    'Accuracy': []}
-
-    scaler = RobustScaler()
-    x_train = scaler.fit_transform(x_train)
-    x_test = scaler.fit_transform(x_test)
     for key in methods:
         methods[key].fit(x_train, y_train)
         accuracy = methods[key].score(x_test, y_test)
@@ -154,8 +150,6 @@ def run_with_different_classifiers(df_from_each_file, num_test_files):
                    'Recall': [],
                    'F1 score': [],
                    'Area underneath the curve': []}
-    scaler = RobustScaler()
-    x_train = scaler.fit_transform(x_train)
     for key in classifiers:
         scores = cross_validate(classifiers[key], x_train, y_train, scoring=scoring)
         sorted(scores.keys())
