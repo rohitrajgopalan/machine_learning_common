@@ -23,8 +23,8 @@ class RLSupervisedHelper:
         if self.state_dim == 1:
             new_data.update({'STATE': state})
         else:
-            for i in range(1, self.state_dim + 1):
-                new_data.update({'STATE_VAR{0}'.format(i): state[i]})
+            for i in range(self.state_dim):
+                new_data.update({'STATE_VAR{0}'.format(i+1): state[i]})
         self.supervised_learning_helper.add(new_data, target_value)
 
     def predict(self, state, action):
@@ -34,4 +34,4 @@ class RLSupervisedHelper:
             input_x = list(state)
         input_x.append(action)
         inputs = np.array([input_x])
-        return self.supervised_learning_helper.get_predictions(inputs)
+        return self.supervised_learning_helper.predict(inputs)

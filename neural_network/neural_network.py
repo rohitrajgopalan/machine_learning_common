@@ -1,8 +1,8 @@
+import numpy as np
+
 from supervised_learning.common import load_from_directory
 from .network_layer import *
 from .network_types import NetworkOptimizer
-import numpy as np
-from sklearn.preprocessing import RobustScaler
 
 
 class NeuralNetwork:

@@ -48,6 +48,10 @@ class SupervisedLearningHelper:
     def fit(self, x, y):
         pass
 
+    def predict(self, inputs):
+        predictions = self.get_predictions(inputs)
+        return predictions[0]
+
     def get_predictions(self, inputs):
         return None
 
