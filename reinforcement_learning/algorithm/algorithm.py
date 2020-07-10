@@ -58,12 +58,13 @@ class Algorithm:
             return -1
 
     def get_scalar(self, s, a, network):
+        q_mat = network.get_action_values(s)
+        if q_mat.shape[1] == 0:
+            q_mat = np.zeros((1, self.policy.num_actions))
         if self.algorithm_name == AlgorithmName.EXPECTED_SARSA:
             policy_mat = self.policy.derive(s, network)
-            q_mat = network.get_action_values(s)
             return np.dot(policy_mat, q_mat.T)[0]
         else:
-            q_mat = network.get_action_values(s)
             try:
                 return q_mat[0, a]
             except IndexError as e:

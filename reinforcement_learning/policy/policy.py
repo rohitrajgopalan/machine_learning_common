@@ -37,7 +37,7 @@ class Policy:
         return self.derive_policy_based_from_values(action_values)
 
     def derive_policy_based_from_values(self, action_values):
-        return np.zeros(self.num_actions)
+        return np.zeros((1, self.num_actions))
 
     def choose_action(self, state, network):
         action_values = network.get_action_values(state)
