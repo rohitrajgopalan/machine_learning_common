@@ -1,15 +1,8 @@
-import enum
-
-import numpy as np
 import pandas as pd
 from neural_network.neural_network import NeuralNetwork
 
-from .common import randomly_select_classifier, randomly_select_regressor, select_best_regressor, select_best_classifier
-
-
-class MethodType(enum.Enum):
-    Classification = 1
-    Regression = 2
+from .common import randomly_select_classifier, randomly_select_regressor, select_best_regressor, \
+    select_best_classifier, MethodType
 
 
 class SupervisedLearningHelper:
@@ -100,4 +93,4 @@ class DeepLearningHelper(SupervisedLearningHelper):
         self.model.update_network(x, y)
 
     def get_predictions(self, inputs):
-        self.model.predict(inputs)
+        return self.model.predict(inputs)

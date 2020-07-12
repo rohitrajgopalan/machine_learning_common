@@ -1,4 +1,4 @@
-from supervised_learning.supervised_learning_helper import MethodType
+from supervised_learning.common import MethodType
 from .rl_supervised_helper import RLSupervisedHelper
 
 

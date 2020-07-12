@@ -1,3 +1,4 @@
+import enum
 import random
 import warnings
 from os import listdir
@@ -35,6 +36,11 @@ regressors = {'Decision Tree': DecisionTreeRegressor(),
               'Ridge': Ridge()}
 scoring = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
 metrics = ['Fitting time', 'Scoring time', 'Accuracy', 'Precision', 'Recall', 'F1 score', 'Area underneath the curve']
+
+
+class MethodType(enum.Enum):
+    Classification = 1
+    Regression = 2
 
 
 def train_test_split_from_data(df_from_each_file, num_test_files=0):
@@ -83,20 +89,17 @@ def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
 
     label = cols[len(cols) - 1]
 
-    if filters == {}:
-        df_from_each_file = [pd.read_csv(f) for f in datasets]
-    else:
-        df_from_each_file = []
-        for f in datasets:
-            df = pd.read_csv(f)
+    df_from_each_file = []
+
+    for csv in datasets:
+        df = pd.read_csv(csv)
+        if not bool(filters):
             for key in filters:
                 df = df.loc[df[key] == filters[key]]
                 if df is None:
                     break
-            if df is not None and len(df.index) > 0:
-                df_from_each_file.append(df)
-
-    for df in df_from_each_file:
+        if df is None or len(df.index) == 0:
+            continue
         if not is_numeric_dtype(df[label]):
             unique_labels = list(np.unique(df[label]))
             if unique_labels == ['True', 'False']:
@@ -106,10 +109,9 @@ def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
                 for i, unique_label in enumerate(unique_labels):
                     replace_dict.update({unique_label: i + 1})
             df.replace({label: replace_dict})
-        df_columns = df.columns
-        for col in df_columns:
-            if col not in cols:
-                df = df.drop(col, axis=1)
+        df = df[cols]
+        if df is not None and len(df.index) > 0:
+            df_from_each_file.append(df)
 
     return pd.concat(df_from_each_file, ignore_index=True) if concat else df_from_each_file
 
@@ -134,7 +136,7 @@ def perform_experiment_on_data(df_from_each_file, methods, method_type):
     test_sizes = []
     for num_test_files in range(1, int(len(df_from_each_file) / 5) + 1):
         test_sizes.append(num_test_files)
-        if method_type == 'regression':
+        if method_type == MethodType.Regression:
             results[num_test_files] = run_with_different_methods(df_from_each_file, num_test_files, methods)
         else:
             results[num_test_files] = run_with_different_classifiers(df_from_each_file, num_test_files)
@@ -194,7 +196,7 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics=[
 
 
 def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', features=[], label='', filters={},
-                       method_type='classification'):
+                       method_type=MethodType.Classification):
     cols = features
     cols.append(label)
     df_from_each_file = load_from_directory(csv_dir, cols, filters)
@@ -216,17 +218,20 @@ def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', featur
                     metric_values.append(np.max(dataset[i]))
         sort_index = np.argsort(metric_values)
         best_method = methods[method_names[sort_index[-1]]]
-        x, y, _, _ = train_test_split_from_data(df_from_each_file)
+        df_concatenated = pd.concat(df_from_each_file, ignore_index=True)
+        x = df_concatenated[features]
+        y = df_concatenated[label]
         best_method.fit(x, y)
-        return best_method, pd.concat(df_from_each_file, ignore_index=True)
+        return best_method, df_concatenated
 
 
 def select_best_classifier(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={}):
-    return select_best_method(csv_dir, classifiers, best_type, metric, features, label, filters, 'classification')
+    return select_best_method(csv_dir, classifiers, best_type, metric, features, label, filters,
+                              MethodType.Classification)
 
 
 def select_best_regressor(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={}):
-    return select_best_method(csv_dir, regressors, best_type, metric, features, label, filters, 'regression')
+    return select_best_method(csv_dir, regressors, best_type, metric, features, label, filters, MethodType.Regression)
 
 
 def randomly_select_method(methods):
