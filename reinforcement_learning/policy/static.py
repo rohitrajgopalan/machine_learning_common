@@ -33,11 +33,13 @@ class StaticPolicy(Policy):
                         val = int(val)
                     state_as_list.append(val)
                 state = np.array([state_as_list])
-            action = int(row['ACTION'])
-            if state in self.policy_table:
-                self.policy_table[state].append(action)
-            else:
-                self.policy_table.update({state: [action]})
+            actions = row['ACTION(S)'].split(';')
+            if state not in self.policy_table:
+                self.policy_table[state] = []
+            actions = [int(action) for action in actions]
+            for action in actions:
+                if action not in self.policy_table[state]:
+                    self.policy_table[state].append(action)
 
     def derive(self, state, network):
         if type(state) == tuple:

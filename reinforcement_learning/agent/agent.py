@@ -144,19 +144,21 @@ class Agent:
                     else:
                         action = str(df['ACTION'])
                 else:
-                    action_as_list = row['ACTION']
+                    action_as_list = row['ACTION'].split(';')
+                    actions = []
                     for a in action_as_list:
                         try:
                             if '.' in a:
                                 a = float(a)
                             else:
                                 a = int(a)
+                            actions.append(a)
                         except TypeError:
                             continue
                     if action_type == 'tuple':
-                        action = tuple(action_as_list)
+                        action = tuple(actions)
                     else:
-                        action = np.array([action_as_list])
+                        action = np.array([actions])
             else:
                 action = row['ACTION']
             actions_from_csv.append(action)
