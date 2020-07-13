@@ -14,6 +14,9 @@ class ActionValueNetwork:
     def get_action_values(self, s):
         if s is None:
             return np.zeros((1, self.num_actions))
+
+        s = np.array([s])
+        print('State: ', s)
         """
         Args:
             s (Numpy array): The state.
@@ -21,12 +24,14 @@ class ActionValueNetwork:
             The action-values (Numpy array) calculated using the network's weights.
         """
         try:
-            initial_prediction = self.neural_network.predict(np.array([s]))
+            initial_prediction = self.neural_network.predict(s)
+            print('Initial Prediction: ', initial_prediction)
             if initial_prediction.shape[1] == 0:
                 return np.zeros((1, self.num_actions))
             else:
                 return initial_prediction
         except ValueError as e:
+            print('Unable to get prediction for state as a result of this error: ', e)
             return np.zeros((1, self.num_actions))
 
     def add_action(self):
