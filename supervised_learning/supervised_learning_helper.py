@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from neural_network.neural_network import NeuralNetwork
 
 from .common import randomly_select_classifier, randomly_select_regressor, select_best_regressor, \
@@ -10,6 +11,7 @@ class SupervisedLearningHelper:
     state_dim = 0
     csv_dir = ''
     filters = {}
+    features = []
     label = ''
     historical_data = None
 
@@ -23,7 +25,8 @@ class SupervisedLearningHelper:
         if self.historical_data is None:
             cols = self.features
             cols.append(self.label)
-            self.historical_data = pd.DataFrame(columns=cols)
+            cols = list(np.unique(cols))
+            self.historical_data = pd.DataFrame(columns=list(np.unique(cols)))
 
     def update(self):
         pass
@@ -43,7 +46,10 @@ class SupervisedLearningHelper:
 
     def predict(self, inputs):
         predictions = self.get_predictions(inputs)
-        return predictions[0]
+        try:
+            return predictions[0,0]
+        except ValueError:
+            return predictions[0]
 
     def get_predictions(self, inputs):
         return None
@@ -86,7 +92,7 @@ class DeepLearningHelper(SupervisedLearningHelper):
         self.model = NeuralNetwork.choose_neural_network(dl_args)
         columns = features
         columns.append(label)
-        self.model.load_data_from_directory(self.csv_dir, columns)
+        self.historical_data = self.model.load_data_from_directory(csv_dir, columns)
         super().__init__(method_type, csv_dir, features, label, filters)
 
     def fit(self, x, y):
