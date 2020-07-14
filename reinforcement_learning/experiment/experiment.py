@@ -24,7 +24,6 @@ class Experiment:
     action_cols = ['ID', 'ACTION', 'TYPE']
     output_dir = ''
     dt_str = ''
-    should_export = True
 
     def __init__(self, output_dir):
         self.hyper_parameters_data = pd.DataFrame(columns=self.cols)
@@ -89,110 +88,114 @@ class Experiment:
         return chosen_options
 
     def process_run(self, run_info, agents, run_times, time_steps):
-        try:
-            hyper_parameter_val = 0
-            if run_info['policy_name'] == 'epsilon_greedy':
-                hyper_parameter_val = run_info['policy_args']['epsilon']
-            elif run_info['policy_name'] == 'softmax':
-                hyper_parameter_val = run_info['policy_args']['tau']
-            elif run_info['policy_name'] == 'ucb':
-                hyper_parameter_val = run_info['policy_args']['ucb_c']
-            self.hyper_parameters_data = self.hyper_parameters_data.append(
-                {'LEARNING_TYPE': run_info['learning_type'].name,
-                 'ALGORITHM': run_info['algorithm_name'].name,
-                 'POLICY': run_info['policy_name'],
-                 'HYPER_PARAMETER': hyper_parameter_val,
-                 'GAMMA': run_info['algorithm_args'][
-                     'discount_factor'],
-                 'ENABLE_ACTION_BLOCKING': 'Yes' if run_info[
-                     'enable_action_blocking'] else 'No',
-                 'ACTION_BLOCKING_HELPER': 'Scikit-Learn' if
-                 run_info[
-                     'action_blocking_dl_args'] is None else 'Deep-Learning',
-                 'ENABLE_ITERATOR': 'Yes' if
-                 run_info['algorithm_args'][
-                     'enable_iterator'] else 'No',
-                 'ITERATOR_HELPER': 'Scikit-Learn' if run_info[
-                                                          'regression_dl_args'] is None else 'Deep-Learning',
-                 'OPTIMIZER': run_info['action_network_args'][
-                     'optimizer_type'].name,
-                 'ALPHA': run_info['action_network_args'][
-                     'optimizer_args']['learning_rate'],
-                 'BETA_V': run_info['action_network_args'][
-                     'optimizer_args']['beta_v'],
-                 'BETA_M': run_info['action_network_args'][
-                     'optimizer_args']['beta_m'],
-                 'EPSILON': run_info['action_network_args'][
-                     'optimizer_args']['epsilon'],
-                 'NUM_REPLAY': run_info[
-                     'num_replay'] if 'num_replay' in run_info else 0,
-                 'BUFFER_SIZE': run_info[
-                     'buffer_size'] if 'buffer_size' in run_info else 0,
-                 'MINI_BATCH_SIZE': run_info[
-                     'mini_batch_size'] if 'mini_batch_size' in run_info else 0,
-                 'MAX_RUNTIME': np.max(run_times),
-                 'AVG_RUNTIME': np.mean(run_times),
-                 'MAX_TIME_STEP': np.max(time_steps),
-                 'AVG_TIME_STEP': np.mean(time_steps)},
-                ignore_index=True)
+		hyper_parameter_val = 0
+		if run_info['policy_name'] == 'epsilon_greedy':
+			hyper_parameter_val = run_info['policy_args']['epsilon']
+		elif run_info['policy_name'] == 'softmax':
+			hyper_parameter_val = run_info['policy_args']['tau']
+		elif run_info['policy_name'] == 'ucb':
+			hyper_parameter_val = run_info['policy_args']['ucb_c']
+		self.hyper_parameters_data = self.hyper_parameters_data.append(
+			{'LEARNING_TYPE': run_info['learning_type'].name,
+			 'ALGORITHM': run_info['algorithm_name'].name,
+			 'POLICY': run_info['policy_name'],
+			 'HYPER_PARAMETER': hyper_parameter_val,
+			 'GAMMA': run_info['algorithm_args'][
+				 'discount_factor'],
+			 'ENABLE_ACTION_BLOCKING': 'Yes' if run_info[
+				 'enable_action_blocking'] else 'No',
+			 'ACTION_BLOCKING_HELPER': 'Scikit-Learn' if
+			 run_info[
+				 'action_blocking_dl_args'] is None else 'Deep-Learning',
+			 'ENABLE_ITERATOR': 'Yes' if
+			 run_info['algorithm_args'][
+				 'enable_iterator'] else 'No',
+			 'ITERATOR_HELPER': 'Scikit-Learn' if run_info[
+													  'regression_dl_args'] is None else 'Deep-Learning',
+			 'OPTIMIZER': run_info['action_network_args'][
+				 'optimizer_type'].name,
+			 'ALPHA': run_info['action_network_args'][
+				 'optimizer_args']['learning_rate'],
+			 'BETA_V': run_info['action_network_args'][
+				 'optimizer_args']['beta_v'],
+			 'BETA_M': run_info['action_network_args'][
+				 'optimizer_args']['beta_m'],
+			 'EPSILON': run_info['action_network_args'][
+				 'optimizer_args']['epsilon'],
+			 'NUM_REPLAY': run_info[
+				 'num_replay'] if 'num_replay' in run_info else 0,
+			 'BUFFER_SIZE': run_info[
+				 'buffer_size'] if 'buffer_size' in run_info else 0,
+			 'MINI_BATCH_SIZE': run_info[
+				 'mini_batch_size'] if 'mini_batch_size' in run_info else 0,
+			 'MAX_RUNTIME': np.max(run_times),
+			 'AVG_RUNTIME': np.mean(run_times),
+			 'MAX_TIME_STEP': np.max(time_steps),
+			 'AVG_TIME_STEP': np.mean(time_steps)},
+			ignore_index=True)
 
-            actions_dir = join(self.output_dir, 'actions')
-            if not isdir(actions_dir):
-                mkdir(actions_dir)
-            final_policy_dir = join(self.output_dir, 'final_policy')
-            if not isdir(final_policy_dir):
-                mkdir(final_policy_dir)
-            for agent in agents:
-                agent_folder = 'agent_{0}'.format(agent.agent_id)
-                agent_actions_dir = join(actions_dir, agent_folder)
-                if not isdir(agent_actions_dir):
-                    mkdir(agent_actions_dir)
+		actions_dir = join(self.output_dir, 'actions')
+		if not isdir(actions_dir):
+			mkdir(actions_dir)
+		final_policy_dir = join(self.output_dir, 'final_policy')
+		if not isdir(final_policy_dir):
+			mkdir(final_policy_dir)
+		for agent in agents:
+			agent_folder = 'agent_{0}'.format(agent.agent_id)
+			agent_actions_dir = join(actions_dir, agent_folder)
+			if not isdir(agent_actions_dir):
+				mkdir(agent_actions_dir)
 
-                file_name = "{0}.csv".format(datetime.now().strftime("%Y%m%d%H%M%S"))
-                agent_action_file = join(agent_actions_dir, file_name)
-                agent_actions = pd.DataFrame(columns=self.action_cols)
-                for i, action in enumerate(agent.actions):
-                    if type(action) == str or type(action) == int:
-                        action_as_list = [action]
-                    else:
-                        action_as_list = list(action)
-                    agent_actions = agent_actions.append(
-                        {'ID': i + 1, 'ACTION': ';'.join(str(x) for x in action_as_list),
-                         'TYPE': action.__class__.__name__},
-                        ignore_index=True)
-                agent_actions.to_csv(agent_action_file, index=False)
+			file_name = "{0}.csv".format(datetime.now().strftime("%Y%m%d%H%M%S"))
+			agent_action_file = join(agent_actions_dir, file_name)
+			
+			
+			num_tuples_in_actions = len([a for a in agent.actions if type(a) == Tuple])
+			if num_tuples_in_actions > 0:
+				agent_actions = pd.DataFrame(columns=self.action_cols)
+				for i, action in enumerate(agent.actions):
+					if type(action) == str or type(action) == int:
+						action_as_list = [action]
+					else:
+						action_as_list = list(action)
+					agent_actions = agent_actions.append(
+						{'ID': i + 1, 'ACTION': ';'.join(str(x) for x in action_as_list),
+						 'TYPE': action.__class__.__name__},
+						ignore_index=True)
+				agent_actions.to_csv(agent_action_file, index=False)
+			else:
+				actions = [a for a in agent.actions if a != 'SAMPLE']
+				actions = np.array([actions])
+				np.save(agent_action_file,actions)
 
-                agent_final_policy_dir = join(final_policy_dir, agent_folder)
-                agent_final_policy_file = join(agent_final_policy_dir, file_name)
-                if not isdir(agent_final_policy_dir):
-                    mkdir(agent_final_policy_dir)
-                final_policy = agent.determine_final_policy()
+			agent_final_policy_dir = join(final_policy_dir, agent_folder)
+			agent_final_policy_file = join(agent_final_policy_dir, file_name)
+			if not isdir(agent_final_policy_dir):
+				mkdir(agent_final_policy_dir)
+			final_policy = agent.determine_final_policy()
 
-                agent_final_policy_cols = []
-                if agent.state_dim == 1:
-                    agent_final_policy_cols.append('STATE')
-                else:
-                    for i in range(1, agent.state_dim + 1):
-                        agent_final_policy_cols.append('STATE_VAR{0}'.format(i))
-                agent_final_policy_cols.append('ACTION(S)')
-                agent_final_policy = pd.DataFrame(columns=agent_final_policy_cols)
-                for state in final_policy:
-                    new_data = {}
-                    if agent.state_dim == 1:
-                        new_data.update({'STATE': state})
-                    else:
-                        for i in range(agent.state_dim):
-                            new_data.update({'STATE_VAR{0}'.format(i + 1): state[i]})
-                    new_data.update({'ACTION(S)': ';'.join(str(action) for action in final_policy[state])})
-                    agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
-                agent_final_policy.to_csv(agent_final_policy_file, index=False)
-                self.agents_data = self.agents_data.append(
-                    {'AGENT_ID': agent.agent_id, 'TOTAL_REWARD': agent.get_total_reward(),
-                     'NUM_UPDATE_STEPS': agent.n_update_steps, 'FINAL_POLICY_FILE': file_name,
-                     'ACTIONS_FILE': file_name}, ignore_index=True)
-
-        except MemoryError:
-            self.should_export = False
+			agent_final_policy_cols = []
+			if agent.state_dim == 1:
+				agent_final_policy_cols.append('STATE')
+			else:
+				for i in range(1, agent.state_dim + 1):
+					agent_final_policy_cols.append('STATE_VAR{0}'.format(i))
+			agent_final_policy_cols.append('ACTION(S)')
+			agent_final_policy = pd.DataFrame(columns=agent_final_policy_cols)
+			for state in final_policy:
+				new_data = {}
+				if agent.state_dim == 1:
+					new_data.update({'STATE': state})
+				else:
+					for i in range(agent.state_dim):
+						new_data.update({'STATE_VAR{0}'.format(i + 1): state[i]})
+				new_data.update({'ACTION(S)': ';'.join(str(action) for action in final_policy[state])})
+				agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
+			agent_final_policy.to_csv(agent_final_policy_file, index=False)
+			self.agents_data = self.agents_data.append(
+				{'AGENT_ID': agent.agent_id, 'TOTAL_REWARD': agent.get_total_reward(),
+				 'NUM_UPDATE_STEPS': agent.n_update_steps, 'FINAL_POLICY_FILE': file_name,
+				 'ACTIONS_FILE': file_name}, ignore_index=True)
 
     def perform_experiment(self, experimental_parameters, specifics):
         # Gather specifics
@@ -324,12 +327,11 @@ class Experiment:
                                                                 self.process_run(run_info, agents, run_times,
                                                                                  time_steps)
 
-        if self.should_export:
-            self.hyper_parameters_data.to_csv(
-                '{0}'.format(os.path.join(self.output_dir, 'run_summary_{0}.csv'.format(self.dt_str))), index=False)
-            self.agents_data.to_csv(
-                '{0}'.format(os.path.join(self.output_dir, 'agents_data_{0}.csv'.format(self.dt_str))),
-                index=False)
+		self.hyper_parameters_data.to_csv(
+			'{0}'.format(os.path.join(self.output_dir, 'run_summary_{0}.csv'.format(self.dt_str))), index=False)
+		self.agents_data.to_csv(
+			'{0}'.format(os.path.join(self.output_dir, 'agents_data_{0}.csv'.format(self.dt_str))),
+			index=False)
 
     def perform_run(self, run_info={}):
         agents = run_info['agents']
