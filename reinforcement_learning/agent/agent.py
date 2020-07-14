@@ -1,307 +1,392 @@
 import enum
+import os
+from datetime import datetime
+from os import mkdir
+from os.path import join, isdir
+
 import numpy as np
 import pandas as pd
 
-from reinforcement_learning.environment.environment import ActionType
-from reinforcement_learning.network.actionvaluenetwork import ActionValueNetwork
-from reinforcement_learning.policy.epsilon_greedy import EpsilonGreedy
-from reinforcement_learning.policy.softmax import Softmax
-from reinforcement_learning.policy.ucb import UCB
-from reinforcement_learning.replay.replay_buffer import ReplayBuffer
-from reinforcement_learning.supervised.negative_action_blocker import NegativeActionBlocker
+from neural_network.network_types import NetworkOptimizer
+from reinforcement_learning.agent.agent import LearningType, Agent
+from reinforcement_learning.algorithm.algorithm import Algorithm, AlgorithmName
+from reinforcement_learning.policy.choose_policy import choose_policy
 
 
-class LearningType(enum.Enum):
-    ONLINE = 1,
-    REPLAY = 2
+class Experiment:
+    hyper_parameters_data = None
+    cols = ['ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'GAMMA',
+            'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'ENABLE_ITERATOR', 'ITERATOR_HELPER', 'OPTIMIZER',
+            'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'NUM_REPLAY', 'BUFFER_SIZE', 'MINI_BATCH_SIZE',
+            'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
+    agent_cols = ['AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'FINAL_POLICY_FILE', 'ACTIONS_FILE']
+    agents_data = None
+    action_cols = ['ID', 'ACTION', 'TYPE']
+    output_dir = ''
+    dt_str = ''
 
-    @staticmethod
-    def all():
-        return [LearningType.ONLINE, LearningType.REPLAY]
+    def __init__(self, output_dir):
+        self.hyper_parameters_data = pd.DataFrame(columns=self.cols)
+        self.output_dir = output_dir
+        self.agents_data = pd.DataFrame(columns=self.agent_cols)
+        self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
 
+    def choose_from_options(self, all_possible_options, chosen_types, key):
+        chosen_options = []
 
-class Agent:
-    learning_type = None
-    is_double_agent = False
-
-    algorithm = None
-
-    policy_network = None
-    target_network = None
-
-    active = True
-    actions = []
-
-    state_dim = 0
-    initial_state = None
-    current_state = None
-    next_state = None
-
-    initial_action = -1
-    actual_action = -1
-
-    experienced_states = []
-
-    historical_data = None
-    historical_data_columns = []
-
-    enable_action_blocking = False
-    action_blocker = None
-
-    num_replay = 0
-    replay_buffer = None
-
-    def __init__(self, args=None):
-        # In an multi-agent setting, data from other agents might come and populate here which will
-        # break the code and give unexpected results.
-        # So a pre-clean-up is necessary
-        if len(self.experienced_states) > 0:
-            self.experienced_states = []
-        if len(self.historical_data_columns) > 0:
-            self.historical_data_columns = []
-
-        self.did_block_action = False
-        actions_csv_file = ''
-
-        if args is None:
-            args = {}
-        for key in args:
-            if 'actions_csv_file' in key:
-                actions_csv_file = args[key]
-            else:
-                setattr(self, key, args[key])
-
-        self.n_update_steps = 0
-
-        if self.state_dim == 1:
-            if self.initial_state is None:
-                self.initial_state = 0
+        if key in chosen_types:
+            if type(chosen_types[key]) == str:
+                if chosen_types[key].lower() == 'all':
+                    chosen_options = all_possible_options
+                elif chosen_types[key].lower() in all_possible_options:
+                    chosen_options = [chosen_types[key]]
+            elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
+                chosen_options = chosen_types[key]
         else:
-            start_loc_list = list(self.initial_state)
-            if self.state_dim > len(start_loc_list):
-                for _ in range(len(start_loc_list), self.state_dim):
-                    start_loc_list.append(0)
-            self.initial_state = tuple(start_loc_list)
-        self.current_state = self.initial_state
-        self.add_state(self.current_state)
+            chosen_options = all_possible_options
 
-        if self.state_dim == 1:
-            self.historical_data_columns.append('STATE')
-        else:
-            for i in range(1, self.state_dim + 1):
-                self.historical_data_columns.append('STATE_VAR{0}'.format(i))
-        self.historical_data_columns.append('INITIAL_ACTION')
-        self.historical_data_columns.append('REWARD')
-        self.historical_data_columns.append('ALGORITHM')
-        self.historical_data_columns.append('GAMMA')
-        self.historical_data_columns.append('POLICY')
-        self.historical_data_columns.append('HYPERPARAMETER')
-        self.historical_data_columns.append('TARGET_VALUE')
-        self.historical_data_columns.append('BLOCKED?')
+        return chosen_options
 
-        if len(actions_csv_file) > 0:
-            self.load_actions_from_csv(actions_csv_file)
+    def choose_from_enums(self, all_possible_options, chosen_types, key):
+        chosen_options = []
 
-        self.reset()
-
-    def blocker_init(self, csv_dir, dl_args=None):
-        if not self.enable_action_blocking:
-            pass
-        self.action_blocker = NegativeActionBlocker(csv_dir, self.state_dim, dl_args)
-
-    def buffer_init(self, num_replay, size, minibatch_size, random_seed):
-        if self.learning_type == LearningType.REPLAY:
-            self.replay_buffer = ReplayBuffer(size, minibatch_size, random_seed)
-            self.num_replay = num_replay
-
-    def add_state(self, s):
-        if s is None:
-            pass
-        if not type(s) == int:
-            if type(s) == np.ndarray:
-                s = tuple(s.reshape(1, -1)[0])
-            elif type(s) == list:
-                s = tuple(s)
-        if s not in self.experienced_states:
-            self.experienced_states.append(s)
-
-    def reset(self):
-        self.current_state = self.initial_state
-        self.historical_data = pd.DataFrame(columns=self.historical_data_columns)
-        self.active = True
-
-    def load_actions_from_csv(self, csv_file):
-        df = pd.read_csv(csv_file)
-        actions_from_csv = []
-        for index, row in df.iterrows():
-            if 'TYPE' in df.columns:
-                action_type = row['TYPE']
-                if action_type in ['int', 'float', 'str']:
-                    if action_type == 'int':
-                        action = int(df['ACTION'])
-                    elif action_type == 'float':
-                        action = float(df['ACTION'])
-                    else:
-                        action = str(df['ACTION'])
+        if key in chosen_types:
+            if type(chosen_types[key]) == str:
+                if chosen_types[key] == 'all':
+                    chosen_options = all_possible_options
                 else:
-                    action_as_list = row['ACTION'].split(';')
-                    actions = []
-                    for a in action_as_list:
-                        try:
-                            if '.' in a:
-                                a = float(a)
-                            else:
-                                a = int(a)
-                            actions.append(a)
-                        except TypeError:
-                            continue
-                    if action_type == 'tuple':
-                        action = tuple(actions)
-                    else:
-                        action = np.array([actions])
-            else:
-                action = row['ACTION']
-            actions_from_csv.append(action)
-        if len(actions_from_csv) > 0:
-            self.actions = actions_from_csv
-
-    def add_action(self, action):
-        self.actions.append(action)
-        self.policy_network.add_action()
-        if self.is_double_agent:
-            self.target_network.add_action()
-        self.algorithm.policy.add_action()
-
-    def network_init(self, action_network_args):
-        action_network_args.update({'num_inputs': self.state_dim, 'num_outputs': len(self.actions)})
-        self.policy_network = ActionValueNetwork(action_network_args)
-        if self.is_double_agent:
-            self.target_network = ActionValueNetwork(action_network_args)
-
-    def step(self, r1, r2):
-        self.n_update_steps += 1
-        if self.did_block_action:
-            r = r2 * -1
+                    for some_type in all_possible_options:
+                        if some_type.name.lower() == chosen_types[key].lower():
+                            chosen_options = [some_type]
+                            break
+            elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
+                chosen_options = []
+                for item in chosen_types[key]:
+                    for some_type in all_possible_options:
+                        if (type(item) == str and some_type.name.lower() == item.lower()) or type(
+                                item) == enum.Enum and item == some_type:
+                            chosen_options.append(some_type)
+                            break
+            elif type(chosen_types[key]) == enum.Enum:
+                chosen_options = [chosen_types[key]]
         else:
-            r = r1
-        self.algorithm.policy.update(self.initial_action, r)
+            chosen_options = all_possible_options
 
-        self.add_to_supervised_learning(r1)
+        return chosen_options
 
-        self.add_state(self.current_state)
-        self.add_state(self.next_state)
-
-        if self.is_double_agent:
-            self.target_network.set_weights(self.policy_network.get_weights())
-
-        if self.learning_type == LearningType.REPLAY:
-            self.replay_buffer.append(self.current_state, self.initial_action, r, 1 - int(self.active), self.next_state)
-            if self.replay_buffer.size() > self.replay_buffer.minibatch_size:
-                for _ in range(self.num_replay):
-                    experiences = self.replay_buffer.sample()
-                    self.optimize_network_bulk(experiences)
+    def create_boolean_list(self, chosen_types, key):
+        chosen_options = []
+        if key in chosen_types:
+            if chosen_types[key].lower() == 'yes':
+                chosen_options = [True]
+            elif chosen_types[key].lower() == 'no':
+                chosen_options = [False]
+            elif chosen_types[key].lower() == 'both':
+                chosen_options = [False, True]
         else:
-            self.optimize_network(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
+            chosen_options = [False, True]
+        return chosen_options
 
-        if self.active:
-            self.current_state = self.next_state
+    def process_run(self, run_info, agents, run_times, time_steps):
+		hyper_parameter_val = 0
+		if run_info['policy_name'] == 'epsilon_greedy':
+			hyper_parameter_val = run_info['policy_args']['epsilon']
+		elif run_info['policy_name'] == 'softmax':
+			hyper_parameter_val = run_info['policy_args']['tau']
+		elif run_info['policy_name'] == 'ucb':
+			hyper_parameter_val = run_info['policy_args']['ucb_c']
+		self.hyper_parameters_data = self.hyper_parameters_data.append(
+			{'LEARNING_TYPE': run_info['learning_type'].name,
+			 'ALGORITHM': run_info['algorithm_name'].name,
+			 'POLICY': run_info['policy_name'],
+			 'HYPER_PARAMETER': hyper_parameter_val,
+			 'GAMMA': run_info['algorithm_args'][
+				 'discount_factor'],
+			 'ENABLE_ACTION_BLOCKING': 'Yes' if run_info[
+				 'enable_action_blocking'] else 'No',
+			 'ACTION_BLOCKING_HELPER': 'Scikit-Learn' if
+			 run_info[
+				 'action_blocking_dl_args'] is None else 'Deep-Learning',
+			 'ENABLE_ITERATOR': 'Yes' if
+			 run_info['algorithm_args'][
+				 'enable_iterator'] else 'No',
+			 'ITERATOR_HELPER': 'Scikit-Learn' if run_info[
+													  'regression_dl_args'] is None else 'Deep-Learning',
+			 'OPTIMIZER': run_info['action_network_args'][
+				 'optimizer_type'].name,
+			 'ALPHA': run_info['action_network_args'][
+				 'optimizer_args']['learning_rate'],
+			 'BETA_V': run_info['action_network_args'][
+				 'optimizer_args']['beta_v'],
+			 'BETA_M': run_info['action_network_args'][
+				 'optimizer_args']['beta_m'],
+			 'EPSILON': run_info['action_network_args'][
+				 'optimizer_args']['epsilon'],
+			 'NUM_REPLAY': run_info[
+				 'num_replay'] if 'num_replay' in run_info else 0,
+			 'BUFFER_SIZE': run_info[
+				 'buffer_size'] if 'buffer_size' in run_info else 0,
+			 'MINI_BATCH_SIZE': run_info[
+				 'mini_batch_size'] if 'mini_batch_size' in run_info else 0,
+			 'MAX_RUNTIME': np.max(run_times),
+			 'AVG_RUNTIME': np.mean(run_times),
+			 'MAX_TIME_STEP': np.max(time_steps),
+			 'AVG_TIME_STEP': np.mean(time_steps)},
+			ignore_index=True)
 
-    def add_to_supervised_learning(self, r):
-        blocked_boolean = 1 if r <= (self.algorithm.policy.min_penalty * -1) else 0
-        if self.enable_action_blocking:
-            self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
-        new_data = {}
-        if self.state_dim == 1:
-            new_data.update({'STATE': self.current_state})
-        else:
-            for i in range(self.state_dim):
-                new_data.update({'STATE_VAR{0}'.format(i + 1): self.current_state[i]})
+		actions_dir = join(self.output_dir, 'actions')
+		if not isdir(actions_dir):
+			mkdir(actions_dir)
+		final_policy_dir = join(self.output_dir, 'final_policy')
+		if not isdir(final_policy_dir):
+			mkdir(final_policy_dir)
+		for agent in agents:
+			agent_folder = 'agent_{0}'.format(agent.agent_id)
+			agent_actions_dir = join(actions_dir, agent_folder)
+			if not isdir(agent_actions_dir):
+				mkdir(agent_actions_dir)
 
-        hyperparameter_value = 0
-        if type(self.algorithm.policy) == Softmax:
-            hyperparameter_value = getattr(self.algorithm.policy, 'tau')
-        elif type(self.algorithm.policy) == UCB:
-            hyperparameter_value = getattr(self.algorithm.policy, 'ucb_c')
-        elif type(self.algorithm.policy) == EpsilonGreedy:
-            hyperparameter_value = getattr(self.algorithm.policy, 'epsilon')
+			file_name = "{0}.csv".format(datetime.now().strftime("%Y%m%d%H%M%S"))
+			agent_action_file = join(agent_actions_dir, file_name)
+			
+			
+			num_tuples_in_actions = len([a for a in agent.actions if type(a) == Tuple])
+			if num_tuples_in_actions > 0:
+				agent_actions = pd.DataFrame(columns=self.action_cols)
+				for i, action in enumerate(agent.actions):
+					if type(action) == str or type(action) == int:
+						action_as_list = [action]
+					else:
+						action_as_list = list(action)
+					agent_actions = agent_actions.append(
+						{'ID': i + 1, 'ACTION': ';'.join(str(x) for x in action_as_list),
+						 'TYPE': action.__class__.__name__},
+						ignore_index=True)
+				agent_actions.to_csv(agent_action_file, index=False)
+			else:
+				actions = [a for a in agent.actions if a != 'SAMPLE']
+				actions = np.array([actions])
+				np.save(agent_action_file,actions)
 
-        new_data.update({'INITIAL_ACTION': self.initial_action,
-                         'REWARD': r,
-                         'ALGORITHM': '{0}{1}'.format(self.algorithm.algorithm_name.name,
-                                                      '_LAMBDA' if 'Lambda' in self.algorithm.__class__.__name__ else ''),
-                         'GAMMA': self.algorithm.discount_factor,
-                         'POLICY': self.algorithm.policy.__class__.__name__,
-                         'TARGET_VALUE': self.algorithm.calculate_target_value(self.initial_action,
-                                                                               self.next_state, r,
-                                                                               int(self.active), self.policy_network,
-                                                                               self.target_network),
-                         'HYPERPARAMETER': hyperparameter_value,
-                         'BLOCKED?': blocked_boolean})
-        self.historical_data = self.historical_data.append(new_data, ignore_index=True)
+			agent_final_policy_dir = join(final_policy_dir, agent_folder)
+			agent_final_policy_file = join(agent_final_policy_dir, file_name)
+			if not isdir(agent_final_policy_dir):
+				mkdir(agent_final_policy_dir)
+			final_policy = agent.determine_final_policy()
 
-    def choose_next_action(self):
-        self.initial_action = self.algorithm.policy.choose_action(self.current_state, self.policy_network)
+			agent_final_policy_cols = []
+			if agent.state_dim == 1:
+				agent_final_policy_cols.append('STATE')
+			else:
+				for i in range(1, agent.state_dim + 1):
+					agent_final_policy_cols.append('STATE_VAR{0}'.format(i))
+			agent_final_policy_cols.append('ACTION(S)')
+			agent_final_policy = pd.DataFrame(columns=agent_final_policy_cols)
+			for state in final_policy:
+				new_data = {}
+				if agent.state_dim == 1:
+					new_data.update({'STATE': state})
+				else:
+					for i in range(agent.state_dim):
+						new_data.update({'STATE_VAR{0}'.format(i + 1): state[i]})
+				new_data.update({'ACTION(S)': ';'.join(str(action) for action in final_policy[state])})
+				agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
+			agent_final_policy.to_csv(agent_final_policy_file, index=False)
+			self.agents_data = self.agents_data.append(
+				{'AGENT_ID': agent.agent_id, 'TOTAL_REWARD': agent.get_total_reward(),
+				 'NUM_UPDATE_STEPS': agent.n_update_steps, 'FINAL_POLICY_FILE': file_name,
+				 'ACTIONS_FILE': file_name}, ignore_index=True)
 
-        if self.enable_action_blocking and self.initial_action is not None and self.action_blocker.should_we_block_action(
-                self.current_state,
-                self.initial_action):
-            other_actions = [action for action in range(len(self.actions)) if not action == self.initial_action]
-            self.actual_action = None
-            for action in other_actions:
-                if not self.action_blocker.should_we_block_action(self.current_state, action):
-                    self.actual_action = action
-                    break
-            self.did_block_action = True
-        else:
-            self.actual_action = self.initial_action
-            self.did_block_action = False
+    def perform_experiment(self, experimental_parameters, specifics):
+        # Gather specifics
+        agents_info_list = specifics['agent_info_list']
+        action_network_args = specifics['action_network_args']
+        num_episodes = specifics['num_episodes']
+        environment = specifics['environment']
+        random_seed = specifics['seed'] if 'seed' in specifics else 0
+        action_blocking_dl_args = specifics[
+            'action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
+        regression_dl_args = specifics['regression_dl_args'] if 'regression_dl_args' in specifics else None
+        run_info = {'environment': environment,
+                    'num_episodes': num_episodes,
+                    'random_seed': random_seed}
+        # Process Experimental Parameters
+        chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
+        chosen_algorithms = self.choose_from_enums(AlgorithmName.all(), experimental_parameters, 'algorithm_names')
+        chosen_policies = self.choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb'],
+                                                   experimental_parameters, 'policies')
+        chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
+        chosen_enable_regressors = self.create_boolean_list(experimental_parameters, 'enable_regressors')
+        chosen_double_agent_flags = self.create_boolean_list(experimental_parameters, 'enable_double_learning')
+        chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
+        policy_hyper_parameters = experimental_parameters['policy_hyper_parameters']
+        algorithm_hyper_parameters = experimental_parameters['algorithm_hyper_parameters']
+        replay_buffer_hyper_parameters = experimental_parameters[
+            'replay_buffer_hyper_parameters'] if 'replay_buffer_hyper_parameters' in experimental_parameters else {}
+        if 'alphas' not in algorithm_hyper_parameters or len(algorithm_hyper_parameters['alphas']) == 0:
+            algorithm_hyper_parameters['alphas'] = [0.001]
+        if 'gammas' not in algorithm_hyper_parameters or len(algorithm_hyper_parameters['gammas']) == 0:
+            algorithm_hyper_parameters['gammas'] = [1.0]
+        if 'beta_ms' not in algorithm_hyper_parameters or len(algorithm_hyper_parameters['beta_ms']) == 0:
+            algorithm_hyper_parameters['beta_ms'] = [0.9]
+        if 'beta_vs' not in algorithm_hyper_parameters or len(algorithm_hyper_parameters['beta_vs']) == 0:
+            algorithm_hyper_parameters['beta_vs'] = [0.99]
+        if 'epsilons' not in algorithm_hyper_parameters or len(algorithm_hyper_parameters['epsilons']) == 0:
+            algorithm_hyper_parameters['epsilons'] = [1e-07]
+        for optimizer_type in chosen_optimizers:
+            action_network_args.update({'optimizer_type': optimizer_type})
+            if action_blocking_dl_args is not None:
+                action_blocking_dl_args['optimizer_type'] = optimizer_type
+            if regression_dl_args is not None:
+                regression_dl_args['optimizer_type'] = optimizer_type
+            optimizer_args = {}
+            for learning_rate in algorithm_hyper_parameters['alphas']:
+                optimizer_args['learning_rate'] = learning_rate
+                for beta_m in algorithm_hyper_parameters['beta_ms']:
+                    optimizer_args['beta_m'] = beta_m
+                    for beta_v in algorithm_hyper_parameters['beta_vs']:
+                        optimizer_args['beta_v'] = beta_v
+                        for epsilon in algorithm_hyper_parameters['epsilons']:
+                            optimizer_args['epsilon'] = epsilon
+                            action_network_args['optimizer_args'] = optimizer_args
+                            if action_blocking_dl_args is not None:
+                                action_blocking_dl_args['optimizer_args'] = optimizer_args
+                            if regression_dl_args is not None:
+                                regression_dl_args['optimizer_args'] = optimizer_args
+                            run_info.update({'action_network_args': action_network_args,
+                                             'action_blocking_dl_args': action_blocking_dl_args,
+                                             'regression_dl_args': regression_dl_args})
+                            for algorithm_name in chosen_algorithms:
+                                run_info['algorithm_name'] = algorithm_name
+                                algorithm_args = {'algorithm_name': algorithm_name}
+                                for discount_factor in algorithm_hyper_parameters['gammas']:
+                                    algorithm_args['discount_factor'] = discount_factor
+                                    for enable_regressor in chosen_enable_regressors:
+                                        algorithm_args['enable_iterator'] = enable_regressor
+                                        run_info['algorithm_args'] = algorithm_args
+                                        for policy_name in chosen_policies:
+                                            run_info['policy_name'] = policy_name
+                                            policy_args = {'random_seed': random_seed,
+                                                           'min_penalty': environment.min_penalty}
+                                            policy_hyper_parameter_list = [0]
+                                            hyper_parameter_type = ''
+                                            if policy_name == 'epsilon_greedy':
+                                                policy_hyper_parameter_list = policy_hyper_parameters['epsilons']
+                                                hyper_parameter_type = 'epsilon'
+                                            elif policy_name == 'softmax':
+                                                policy_hyper_parameter_list = policy_hyper_parameters['taus']
+                                                hyper_parameter_type = 'tau'
+                                            elif policy_name == 'ucb':
+                                                policy_hyper_parameter_list = policy_hyper_parameters[
+                                                    'confidence_factors']
+                                                hyper_parameter_type = 'ucb_c'
+                                            for policy_hyper_parameter in policy_hyper_parameter_list:
+                                                if len(hyper_parameter_type) > 0:
+                                                    policy_args[hyper_parameter_type] = policy_hyper_parameter
+                                                for enable_action_blocking in chosen_action_blockers:
+                                                    run_info['enable_action_blocking'] = enable_action_blocking
+                                                    for learning_type in chosen_learning_types:
+                                                        run_info['learning_type'] = learning_type
+                                                        for is_double_agent in chosen_double_agent_flags:
+                                                            agents = []
+                                                            for i, agent_info in enumerate(agents_info_list):
+                                                                agent_info.update({'agent_id': i + 1,
+                                                                                   'is_double_agent': is_double_agent,
+                                                                                   'learning_type': learning_type,
+                                                                                   'state_dim': environment.required_state_dim,
+                                                                                   'enable_action_blocking': enable_action_blocking})
+                                                                policy_args.update(
+                                                                    {'num_actions': len(agent_info['actions'])})
+                                                                run_info['policy_args'] = policy_args
+                                                                policy = choose_policy(policy_name, policy_args)
+                                                                algorithm_args['policy'] = policy
+                                                                algorithm = Algorithm(algorithm_args)
+                                                                agent_info.update({'algorithm': algorithm})
+                                                                agents.append(Agent(agent_info))
 
-    def get_action(self, action_type):
-        if action_type == ActionType.Initial:
-            return self.initial_action
-        elif action_type == ActionType.Actual:
-            return self.actual_action
-        else:
-            return None
+                                                            run_info['agents'] = agents
+                                                            if learning_type == LearningType.REPLAY:
+                                                                for num_replay in replay_buffer_hyper_parameters[
+                                                                    'num_replay']:
+                                                                    run_info['num_replay'] = num_replay
+                                                                    for buffer_size in replay_buffer_hyper_parameters[
+                                                                        'buffer_size']:
+                                                                        run_info['buffer_size'] = buffer_size
+                                                                        for mini_batch_size in \
+                                                                                replay_buffer_hyper_parameters[
+                                                                                    'mini_batch_size']:
+                                                                            run_info[
+                                                                                'mini_batch_size'] = mini_batch_size
+                                                                            agents, run_times, time_steps = self.perform_run(
+                                                                                run_info)
+                                                                            self.process_run(run_info, agents,
+                                                                                             run_times, time_steps)
+                                                            else:
+                                                                agents, run_times, time_steps = self.perform_run(
+                                                                    run_info)
+                                                                self.process_run(run_info, agents, run_times,
+                                                                                 time_steps)
 
-    def set_action(self, action_type, action):
-        if action_type == ActionType.Initial:
-            self.initial_action = action
-        elif action_type == ActionType.Actual:
-            self.actual_action = action
-        else:
-            self.initial_action = action
-            self.actual_action = action
+		self.hyper_parameters_data.to_csv(
+			'{0}'.format(os.path.join(self.output_dir, 'run_summary_{0}.csv'.format(self.dt_str))), index=False)
+		self.agents_data.to_csv(
+			'{0}'.format(os.path.join(self.output_dir, 'agents_data_{0}.csv'.format(self.dt_str))),
+			index=False)
 
-    def optimize_network(self, s, a, s_, r, terminal):
-        q_target = np.zeros((1, len(self.actions)))
-        q_target[0, a] = self.algorithm.get_target_value(s, a, s_, r, 1 - terminal, self.policy_network,
-                                                         self.target_network)
-        self.policy_network.update_network(np.array([s]), q_target)
+    def perform_run(self, run_info={}):
+        agents = run_info['agents']
+        random_seed = run_info['random_seed'] if 'random_seed' in run_info else 0
+        learning_type = run_info['learning_type'] if 'learning_type' in run_info else LearningType.ONLINE
+        environment = run_info['environment']
 
-    def optimize_network_bulk(self, experiences):
-        q_target = np.zeros((len(experiences), len(self.actions)))
-        states = np.zeros((len(experiences), self.state_dim))
-        for batch_idx, experience in enumerate(experiences):
-            s, a, s_, r, terminal = experience
-            q_target[batch_idx, a] = self.algorithm.get_target_value(s, a, s_, r, 1 - terminal, self.policy_network,
-                                                                     self.target_network)
-            states[batch_idx] = s
-        self.policy_network.update_network(states, q_target)
+        ml_data_dir = join(self.output_dir, 'ml_data')
+        if not isdir(ml_data_dir):
+            mkdir(ml_data_dir)
 
-    def get_total_reward(self):
-        total_reward = 0
+        enable_action_blocking = run_info['enable_action_blocking'] if 'enable_action_blocking' in run_info else False
+        action_blocking_dl_args = run_info['action_blocking_dl_args'] if 'action_blocking_dl_args' in run_info else None
 
-        for state in self.experienced_states:
-            total_reward += np.sum(self.policy_network.get_action_values(state))
+        algorithm_args = run_info['algorithm_args']
+        enable_regression = algorithm_args['enable_iterator'] if 'enable_iterator' in algorithm_args else False
+        regression_dl_args = algorithm_args['regression_dl_args'] if 'regression_dl_args' in algorithm_args else None
+        action_network_args = run_info['action_network_args']
 
-        return total_reward
+        for agent in agents:
+            agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
+            if not isdir(agent_dir):
+                mkdir(agent_dir)
+            if learning_type == LearningType.REPLAY:
+                agent.buffer_init(run_info['num_replay'], run_info['buffer_size'], run_info['mini_batch_size'],
+                                  random_seed)
+            if enable_action_blocking:
+                agent.blocker_init(csv_dir=agent_dir, dl_args=action_blocking_dl_args)
+            if enable_regression:
+                agent.algorithm.iterator_init(csv_dir=agent_dir, state_dim=agent.state_dim, dl_args=regression_dl_args)
+            agent.network_init(action_network_args=action_network_args)
+        environment.set_agents(agents)
 
-    def determine_final_policy(self):
-        final_policy = {}
+        num_episodes = run_info['num_episodes']
+        time_steps = np.zeros(num_episodes)
+        run_times = np.zeros(num_episodes)
 
-        for state in self.experienced_states:
-            final_policy[state] = self.algorithm.policy.actions_with_max_value(
-                self.policy_network.get_action_values(state))
+        for episode in range(num_episodes):
+            environment.reset()
+            done = False
+            start = datetime.now()
+            while not done:
+                done = environment.step()
 
-        return final_policy
+            time_steps[episode] = environment.current_time_step
+
+            end = datetime.now()
+            diff = end - start
+            run_times[episode] = diff.seconds
+
+            for agent in environment.agents:
+                agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
+                agent.historical_data.to_csv(
+                    join(agent_dir,
+                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1)),
+                    index=False)
+
+        return environment.agents, run_times, time_steps
