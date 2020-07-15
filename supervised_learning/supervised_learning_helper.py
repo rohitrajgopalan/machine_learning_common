@@ -21,15 +21,6 @@ class SupervisedLearningHelper:
         self.features = features
         self.label = label
         self.filters = filters
-        self.update()
-        if self.historical_data is None:
-            cols = self.features
-            cols.append(self.label)
-            cols = list(np.unique(cols))
-            self.historical_data = pd.DataFrame(columns=list(np.unique(cols)))
-
-    def update(self):
-        pass
 
     def add(self, feature_values_dict, target_value):
         new_data = {self.label: target_value}
@@ -64,19 +55,14 @@ class SupervisedLearningHelper:
 
 class ScikitLearnHelper(SupervisedLearningHelper):
     method = None
-
-    def update(self):
+    
+    def __init__(self, choosing_method, method_type, csv_dir, features, label, filters={}):
+        super().__init__(method_type, csv_dir, features, label)
         if self.method_type == MethodType.Regression:
-            self.method, self.historical_data = select_best_regressor(self.csv_dir, features=self.features,
-                                                                      label=self.label, filters=self.filters)
-            if self.method is None:
-                self.method = randomly_select_regressor()
+            self.method, self.historical_data = select_regressor(self.csv_dir, choosing_method, self.features, self.label, self.filters)
         else:
-            self.method, self.historical_data = select_best_classifier(self.csv_dir, features=self.features,
-                                                                       label=self.label)
-            if self.method is None:
-                self.method = randomly_select_classifier()
-
+            self.method, self.historical_data = select_classifier(self.csv_dir, choosing_method, self.features, self.label, self.filters)
+    
     def fit(self, x, y):
         self.method.fit(x, y)
 
