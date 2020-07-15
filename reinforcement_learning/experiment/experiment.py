@@ -145,11 +145,18 @@ class Experiment:
             if not isdir(agent_actions_dir):
                 mkdir(agent_actions_dir)
 
-            file_name = "{0}.csv".format(datetime.now().strftime("%Y%m%d%H%M%S"))
-            agent_action_file = join(agent_actions_dir, file_name)
-                        
+            date_str = datetime.now().strftime("%Y%m%d%H%M%S")
+
+            file_name = '{0}.csv'.format(date_str)
             num_tuples_in_actions = len([a for a in agent.actions if type(a) == tuple])
-            if num_tuples_in_actions > 0:
+            num_arrays_in_actions = len([a for a in agent.actions if type(a) == np.ndarray])
+            if num_arrays_in_actions > 0 and num_tuples_in_actions == 0:
+                agent_action_file = join(agent_actions_dir, date_str)
+                actions = [a for a in agent.actions if a != 'SAMPLE']
+                actions = np.array([actions])
+                np.save(agent_action_file,actions)
+            else:
+                agent_action_file = join(agent_actions_dir, file_name)
                 agent_actions = pd.DataFrame(columns=self.action_cols)
                 for i, action in enumerate(agent.actions):
                     if type(action) == str or type(action) == int:
@@ -161,15 +168,11 @@ class Experiment:
                              'TYPE': action.__class__.__name__},
                             ignore_index=True)
                 agent_actions.to_csv(agent_action_file, index=False)
-            else:
-                actions = [a for a in agent.actions if a != 'SAMPLE']
-                actions = np.array([actions])
-                np.save(agent_action_file,actions)
 
             agent_final_policy_dir = join(final_policy_dir, agent_folder)
             agent_final_policy_file = join(agent_final_policy_dir, file_name)
             if not isdir(agent_final_policy_dir):
-                    mkdir(agent_final_policy_dir)
+                mkdir(agent_final_policy_dir)
             final_policy = agent.determine_final_policy()
 
             agent_final_policy_cols = []
@@ -186,7 +189,10 @@ class Experiment:
                     new_data.update({'STATE': state})
                 else:
                     for i in range(agent.state_dim):
-                        new_data.update({'STATE_VAR{0}'.format(i + 1): state[i]})
+                        state_val = state[i]
+                        if type(state_val) == bool:
+                            state_val = int(state_val)
+                        new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
                 new_data.update({'ACTION(S)': ';'.join(str(action) for action in final_policy[state])})
                 agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
             agent_final_policy.to_csv(agent_final_policy_file, index=False)
