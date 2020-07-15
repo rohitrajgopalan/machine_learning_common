@@ -210,49 +210,22 @@ def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', featur
                     metric_values.append(np.max(dataset[i]))
         sort_index = np.argsort(metric_values)
         best_method = methods[method_names[sort_index[-1]]]
-        df_concatenated = pd.concat(df_from_each_file, ignore_index=True)
-        x = df_concatenated[features]
-        y = df_concatenated[label]
-        best_method.fit(x, y)
-        return best_method, df_concatenated
+        return best_method
 
-
-def select_best_classifier(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={}):
-    return select_best_method(csv_dir, classifiers, best_type, metric, features, label, filters,
-                              MethodType.Classification)
-
-
-def select_best_regressor(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={}):
-    return select_best_method(csv_dir, regressors, best_type, metric, features, label, filters, MethodType.Regression)
-
-def select_classifier(csv_dir, choosing_method='best', features=[], label='', filters={}):
+def select_method(csv_dir, choosing_method='best', features=[], label='', filters={}, method_type=MethodType.Classification):
+    historical_data = load_from_directory(csv_dir, cols, filters, concat=True)
+    x = historical_data[features]
+    y = historical_data[label]
+    methods = classifiers if method_type == MethodType.Classification else regressors
     if choosing_method == 'best':
-        return select_best_classifier(csv_dir=csv_dir,features=features,label=label,filters=filters)
+        chosen_method = select_best_method(csv_dir, methods, features=features, label=label, filters=filters, method_type=method_type)
     elif choosing_method == 'random':
-        historical_data = load_from_directory(csv_dir, cols, filters, concat=True)
-        return randomly_select_classifier(), historical_data
-    elif choosing_method in classifiers:
-        historical_data = load_from_directory(csv_dir, cols, filters, concat=True)
-        return classifiers[choosing_method], historical_data
-        
-def select_regressor(csv_dir, choosing_method='best', features=[], label='', filters={}):
-    if choosing_method == 'best':
-        return select_best_regressor(csv_dir=csv_dir,features=features,label=label,filters=filters)
-    elif choosing_method == 'random':
-        historical_data = load_from_directory(csv_dir, cols, filters, concat=True)
-        return randomly_select_regressor(), historical_data
-    elif choosing_method in regressors:
-        historical_data = load_from_directory(csv_dir, cols, filters, concat=True)
-        return regressors[choosing_method], historical_data
-
+        chosen_method = randomly_select_method(methods)
+    elif choosing_method in methods.keys():
+        chosen_method = methods[choosing_method]
+    chosen_method.fit(x,y)
+    return chosen_method, historical_data
+      
 def randomly_select_method(methods):
     key, val = random.choice(list(methods.items()))
     return val
-
-
-def randomly_select_regressor():
-    return randomly_select_method(regressors)
-
-
-def randomly_select_classifier():
-    return randomly_select_method(classifiers)
