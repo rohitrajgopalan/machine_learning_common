@@ -13,16 +13,15 @@ class Softmax(Policy):
         else:
             action_probs = np.exp(action_values/self.tau)
             policy = action_probs/np.sum(action_probs)
-            try:
-                if np.isnan(policy.any()):
-                    return np.full(self.num_actions, 1/self.num_actions)
-                else:
-                    return policy.flatten()
-            except TypeError:
-                return policy.reshape((1, self.num_actions))
+            if np.isnan(policy.any()):
+                return np.full(self.num_actions, 1/self.num_actions)
+            else:
+                return policy.flatten()
 
     def choose_action_based_from_values(self, action_values):
         policy = self.derive_policy_based_from_values(action_values)
+        if np.isnan(policy.any()):
+            policy = np.full(self.num_actions, 1/self.num_actions)
         if self.num_actions == 1:
             return 0
         else:
