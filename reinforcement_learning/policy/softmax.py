@@ -12,10 +12,12 @@ class Softmax(Policy):
             return 1
         else:
             action_probs = np.exp(action_values/self.tau)
-            sum_probs = np.sum(action_probs)
-            policy = action_probs/sum_probs
+            policy = action_probs/np.sum(action_probs)
             try:
-                return policy.flatten()
+                if np.isnan(policy.any()):
+                    return np.full(self.num_actions, 1/self.num_actions)
+                else:
+                    return policy.flatten()
             except TypeError:
                 return policy.reshape((1, self.num_actions))
 
