@@ -62,12 +62,15 @@ class Agent:
 
         self.did_block_action = False
         actions_csv_file = ''
+        actions_npy_file = ''
 
         if args is None:
             args = {}
         for key in args:
             if 'actions_csv_file' in key:
                 actions_csv_file = args[key]
+            elif 'actions_npy_file' in key:
+                actions_npy_file = args[key]
             else:
                 setattr(self, key, args[key])
 
@@ -101,7 +104,9 @@ class Agent:
 
         if len(actions_csv_file) > 0:
             self.load_actions_from_csv(actions_csv_file)
-
+        elif len(actions_npy_file) > 0:
+            self.load_actions_from_npy(actions_npy_file)
+        
         self.reset()
 
     def blocker_init(self, csv_dir, dl_args=None):
@@ -165,12 +170,34 @@ class Agent:
         if len(actions_from_csv) > 0:
             self.actions = actions_from_csv
 
+    def load_actions_from_npy(npy_file):
+        actions_from_npy = np.load(npy_file)
+        for a_index in range(actions_from_npy.shape[0]):
+            action = actions_from_npy[a_index]
+            a_index_, does_exist = self.does_action_already_exist(action)
+            if not does_exist:
+                self.actions.append(action)
+
+    def does_action_already_exist(self, action_in_question):
+        for a, action in enumerate(self.actions):
+            if type(action) == np.ndarray and type(action_in_question) == np.ndarray:
+                if np.array_equal(action,action_in_question):
+                    return a, True
+            elif action == action_in_question:
+                return a, True
+        return -1, False
+    
     def add_action(self, action):
-        self.actions.append(action)
-        self.policy_network.add_action()
-        if self.is_double_agent:
-            self.target_network.add_action()
-        self.algorithm.policy.add_action()
+        a_index, does_exist = self.does_action_already_exist(action)
+        if does_exist:
+            return a_index
+        else:
+            self.actions.append(action)
+            self.policy_network.add_action()
+            if self.is_double_agent:
+                self.target_network.add_action()
+            self.algorithm.policy.add_action()
+            return len(self.actions)-1
 
     def network_init(self, action_network_args):
         action_network_args.update({'num_inputs': self.state_dim, 'num_outputs': len(self.actions)})
@@ -215,7 +242,10 @@ class Agent:
             new_data.update({'STATE': self.current_state})
         else:
             for i in range(self.state_dim):
-                new_data.update({'STATE_VAR{0}'.format(i + 1): self.current_state[i]})
+                state_val = self.current_state[i]
+                if type(state_val) == bool:
+                    state_val = int(state_val)
+                new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
 
         hyperparameter_value = 0
         if type(self.algorithm.policy) == Softmax:
@@ -301,8 +331,10 @@ class Agent:
         final_policy = {}
 
         for state in self.experienced_states:
-	    chosen_actions = self.algorithm.policy.actions_with_max_value(self.policy_network.get_action_values(state))
+            chosen_actions = self.algorithm.policy.actions_with_max_value(self.policy_network.get_action_values(state))
             chosen_actions = [a for a in chosen_actions if self.actions[a] != 'SAMPLE']
-	    final_policy[state] = chosen_actions
+            if 'SAMPLE' in self.actions:
+                chosen_actions = [a-1 for a in chosen_actions]
+            final_policy[state] = chosen_actions
 
         return final_policy
