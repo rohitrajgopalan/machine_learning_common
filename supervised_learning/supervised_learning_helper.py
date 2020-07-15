@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 from neural_network.neural_network import NeuralNetwork
 
-from .common import randomly_select_classifier, randomly_select_regressor, select_best_regressor, \
-    select_best_classifier, MethodType
+from .common import select_regressor, select_classifier, MethodType
 
 
 class SupervisedLearningHelper:
