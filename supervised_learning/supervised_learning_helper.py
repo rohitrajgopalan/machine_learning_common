@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from neural_network.neural_network import NeuralNetwork
 
-from .common import select_regressor, select_classifier, MethodType
+from .common import MethodType, select_method
 
 
 class SupervisedLearningHelper:
@@ -57,10 +57,7 @@ class ScikitLearnHelper(SupervisedLearningHelper):
     
     def __init__(self, choosing_method, method_type, csv_dir, features, label, filters={}):
         super().__init__(method_type, csv_dir, features, label)
-        if self.method_type == MethodType.Regression:
-            self.method, self.historical_data = select_regressor(self.csv_dir, choosing_method, self.features, self.label, self.filters)
-        else:
-            self.method, self.historical_data = select_classifier(self.csv_dir, choosing_method, self.features, self.label, self.filters)
+        self.method = select_method(csv_dir, choosing_method, features, label, filters, method_type)
     
     def fit(self, x, y):
         self.method.fit(x, y)

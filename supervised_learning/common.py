@@ -77,7 +77,7 @@ def plot_data(metrics_to_data, test_sizes, methods):
 
 
 def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
-    datasets = [join(csv_dir,csv) for csv in listdir(csv_dir) if isfile(join(csv_dir,csv))]
+    datasets = [join(csv_dir, csv) for csv in listdir(csv_dir) if isfile(join(csv_dir, csv))]
     label = cols[len(cols) - 1]
 
     df_from_each_file = []
@@ -212,20 +212,26 @@ def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', featur
         best_method = methods[method_names[sort_index[-1]]]
         return best_method
 
-def select_method(csv_dir, choosing_method='best', features=[], label='', filters={}, method_type=MethodType.Classification):
+
+def select_method(csv_dir, choosing_method='best', features=[], label='', filters={},
+                  method_type=MethodType.Classification):
+    cols = features
+    cols.append(label)
     historical_data = load_from_directory(csv_dir, cols, filters, concat=True)
     x = historical_data[features]
     y = historical_data[label]
     methods = classifiers if method_type == MethodType.Classification else regressors
     if choosing_method == 'best':
-        chosen_method = select_best_method(csv_dir, methods, features=features, label=label, filters=filters, method_type=method_type)
+        chosen_method = select_best_method(csv_dir, methods, features=features, label=label, filters=filters,
+                                           method_type=method_type)
     elif choosing_method == 'random':
         chosen_method = randomly_select_method(methods)
     elif choosing_method in methods.keys():
         chosen_method = methods[choosing_method]
-    chosen_method.fit(x,y)
+    chosen_method.fit(x, y)
     return chosen_method, historical_data
-      
+
+
 def randomly_select_method(methods):
     key, val = random.choice(list(methods.items()))
     return val
