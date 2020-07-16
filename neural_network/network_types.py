@@ -20,6 +20,13 @@ class NetworkInitializationType(enum.Enum):
                 NetworkInitializationType.LECUN_NORMAL,
                 NetworkInitializationType.LECUN_UNIFORM]
 
+    @staticmethod
+    def get_type_by_name(name):
+        for initialization_type in NetworkInitializationType.all():
+            if initialization_type.name.lower() == name.lower():
+                return initialization_type
+        return None
+
 
 class NetworkActivationFunction(enum.Enum):
     ELU = 1,
@@ -44,6 +51,13 @@ class NetworkActivationFunction(enum.Enum):
                 NetworkActivationFunction.SWISH,
                 NetworkActivationFunction.TANH]
 
+    @staticmethod
+    def get_type_by_name(name):
+        for activation_function in NetworkActivationFunction.all():
+            if activation_function.name.lower() == name.lower():
+                return activation_function
+        return None
+
 
 class NetworkOptimizer(enum.Enum):
     ADAM = 1,
@@ -53,3 +67,10 @@ class NetworkOptimizer(enum.Enum):
     @staticmethod
     def all():
         return [NetworkOptimizer.ADAM, NetworkOptimizer.ADAMAX, NetworkOptimizer.NADAM]
+
+    @staticmethod
+    def get_type_by_name(name):
+        for optimizer_type in NetworkOptimizer.all():
+            if optimizer_type.name.lower() == name.lower():
+                return optimizer_type
+        return None

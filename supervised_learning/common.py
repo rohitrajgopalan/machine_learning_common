@@ -15,22 +15,22 @@ from sklearn.model_selection import cross_validate
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 warnings.filterwarnings('ignore')
 classifiers = {'Logistic Regression': LogisticRegression(),
                'Decision Tree': DecisionTreeClassifier(),
-               'Support Vector Machine': make_pipeline(RobustScaler(), SVC(gamma='auto', kernel='rbf')),
+               'Support Vector Machine': SVC(gamma='auto', kernel='rbf'),
                'Linear Discriminant Analysis': LinearDiscriminantAnalysis(),
                'Quadratic Discriminant Analysis': QuadraticDiscriminantAnalysis(),
                'Random Forest': RandomForestClassifier(),
                'K-Nearest Neighbors': KNeighborsClassifier(),
                'Bayes': GaussianNB()}
 regressors = {'Decision Tree': DecisionTreeRegressor(),
-              'Support Vector Machine': make_pipeline(RobustScaler(), SVR(gamma='auto', kernel='rbf')),
-              'RandomForest': RandomForestRegressor(),
+              'Support Vector Machine': SVR(gamma='auto', kernel='rbf'),
+              'Random Forest': RandomForestRegressor(),
               'K-Nearest Neighbour': KNeighborsRegressor(),
               'Lasso': Lasso(),
               'Ridge': Ridge()}
@@ -43,7 +43,11 @@ class MethodType(enum.Enum):
     Regression = 2
 
 
-def train_test_split_from_data(df_from_each_file, num_test_files=0):
+scaler_x = MinMaxScaler()
+scaler_y = MinMaxScaler()
+
+
+def train_test_split_from_data(df_from_each_file, num_test_files):
     if num_test_files > 0:
         training_sets = df_from_each_file[:len(df_from_each_file) - num_test_files]
         test_sets = df_from_each_file[len(df_from_each_file) - num_test_files:]
@@ -54,13 +58,20 @@ def train_test_split_from_data(df_from_each_file, num_test_files=0):
         features = cols[:len(cols) - 1]
         label = cols[-1]
 
-        return training[features], training[label], test[features], test[label]
-    else:
-        training = pd.concat(df_from_each_file, ignore_index=True)
-        cols = [col for col in training.columns]
-        features = cols[:len(cols) - 1]
-        label = cols[-1]
-        return training[features], training[label], None, None
+        train_x = training[features]
+        scaler_x.fit(train_x)
+        train_x = scaler_x.transform(train_x)
+        train_y = np.array(training[label]).reshape(-1, 1)
+        scaler_y.fit(train_y)
+        train_y = scaler_y.transform(train_y)
+        test_x = test[features]
+        scaler_x.fit(test_x)
+        test_x = scaler_x.transform(test_x)
+        test_y = np.array(test[label]).reshape(-1, 1)
+        scaler_y.fit(test_y)
+        test_y = scaler_y.transform(test_y)
+
+        return train_x, train_y, test_x, test_y
 
 
 def plot_data(metrics_to_data, test_sizes, methods):
@@ -215,11 +226,6 @@ def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', featur
 
 def select_method(csv_dir, choosing_method='best', features=[], label='', filters={},
                   method_type=MethodType.Classification):
-    cols = features
-    cols.append(label)
-    historical_data = load_from_directory(csv_dir, cols, filters, concat=True)
-    x = historical_data[features]
-    y = historical_data[label]
     methods = classifiers if method_type == MethodType.Classification else regressors
     if choosing_method == 'best':
         chosen_method = select_best_method(csv_dir, methods, features=features, label=label, filters=filters,
@@ -228,10 +234,9 @@ def select_method(csv_dir, choosing_method='best', features=[], label='', filter
         chosen_method = randomly_select_method(methods)
     elif choosing_method in methods.keys():
         chosen_method = methods[choosing_method]
-    chosen_method.fit(x, y)
-    return chosen_method, historical_data
+    return chosen_method
 
 
 def randomly_select_method(methods):
-    key, val = random.choice(list(methods.items()))
-    return val
+    key = random.choice(list(methods.keys()))
+    return methods[key]

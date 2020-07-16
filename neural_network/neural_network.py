@@ -1,6 +1,6 @@
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 
-from supervised_learning.common import load_from_directory
 from .network_layer import *
 from .network_types import NetworkOptimizer
 
@@ -10,6 +10,9 @@ class NeuralNetwork:
     network_layers = None
     optimizer = None
     loss_function = ''
+    enable_scaling = False
+    scaler_x = MinMaxScaler()
+    scaler_y = MinMaxScaler()
 
     def build_model(self):
         self.model = tf.keras.models.Sequential()
@@ -31,19 +34,19 @@ class NeuralNetwork:
             self.optimizer = tf.keras.optimizers.Adam(learning_rate, beta_m, beta_v, epsilon)
 
     def predict(self, inputs):
+        if self.enable_scaling:
+            self.scaler_x.fit(inputs)
+            inputs = self.scaler_x.transform(inputs)
         return self.model.predict(inputs)
 
-    def update_network(self, inputs, outputs):
+    def fit(self, inputs, outputs):
+        if self.enable_scaling:
+            self.scaler_x.fit(inputs)
+            inputs = self.scaler_x.transform(inputs)
+            outputs = np.array(outputs).reshape(-1, 1)
+            self.scaler_y.fit(outputs)
+            outputs = self.scaler_y.transform(outputs)
         self.model.fit(inputs, outputs, verbose=0)
-
-    def load_data_from_directory(self, csv_dir, cols=[]):
-        all_data = load_from_directory(csv_dir=csv_dir, cols=cols, concat=True)
-        columns = all_data.columns
-        features = columns[:len(cols) - 1]
-        label = columns[-1]
-        x = all_data[features]
-        y = all_data[label]
-        self.update_network(x, y)
 
     def parse_dense_layer_info(self, num_inputs, num_outputs, dense_layer_info_list=[], set_input_shape=True):
         for idx, dense_layer_info in enumerate(dense_layer_info_list):
@@ -55,10 +58,16 @@ class NeuralNetwork:
                 num_units = dense_layer_info['num_units']
             activation_function = dense_layer_info[
                 'activation_function'] if 'activation_function' in dense_layer_info else None
+            if type(activation_function) == str:
+                activation_function = NetworkActivationFunction.get_type_by_name(activation_function)
             kernel_initializer = dense_layer_info[
                 'kernel_initializer'] if 'kernel_initializer' in dense_layer_info else NetworkInitializationType.ZEROS
+            if type(kernel_initializer) == str:
+                kernel_initializer = NetworkInitializationType.get_type_by_name(kernel_initializer)
             bias_initializer = dense_layer_info[
                 'bias_initializer'] if 'bias_initializer' in dense_layer_info else NetworkInitializationType.ZEROS
+            if type(bias_initializer) == str:
+                bias_initializer = NetworkInitializationType.get_type_by_name(bias_initializer)
             use_bias = dense_layer_info['use_bias'] if 'use_bias' in dense_layer_info else True
             input_shape = (num_inputs,) if idx == 0 and set_input_shape else None
             self.network_layers.append(
@@ -79,6 +88,8 @@ class ObservationNeuralNetwork(NeuralNetwork):
         num_inputs = args['num_inputs']
         num_outputs = args['num_outputs']
         optimizer_type = args['optimizer_type']
+        if type(optimizer_type) == str:
+            optimizer_type = NetworkOptimizer.get_type_by_name(optimizer_type)
         optimizer_args = args['optimizer_args'] if 'optimizer_args' in args else {}
         if 'loss_function' in args:
             self.loss_function = args['loss_function']
@@ -88,8 +99,14 @@ class ObservationNeuralNetwork(NeuralNetwork):
         else:
             hidden_layer_sizes = args['hidden_layer_sizes']
             activation_function = args['activation_function']
+            if type(activation_function) == str:
+                activation_function = NetworkActivationFunction.get_type_by_name(activation_function)
             kernel_initializer = args['kernel_initializer']
+            if type(kernel_initializer) == str:
+                kernel_initializer = NetworkInitializationType.get_type_by_name(kernel_initializer)
             bias_initializer = args['bias_initializer']
+            if type(bias_initializer) == str:
+                bias_initializer = NetworkInitializationType.get_type_by_name(bias_initializer)
             use_bias = args['use_bias'] if 'use_bias' in args else True
             for idx, hidden_layer_size in enumerate(hidden_layer_sizes):
                 if hidden_layer_size == 'auto':
@@ -102,6 +119,7 @@ class ObservationNeuralNetwork(NeuralNetwork):
                                       input_shape))
             self.network_layers.append(
                 DenseNetworkLayer(num_outputs, activation_function, kernel_initializer, bias_initializer, use_bias))
+        self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
         self.build_model()
 
 
@@ -126,10 +144,16 @@ class ImageFrameNeuralNetwork(NeuralNetwork):
             is_transpose = conv_layer_info['is_transpose'] if 'is_transpose' in conv_layer_info else False
             activation_function = conv_layer_info[
                 'activation_function'] if 'activation_function' in conv_layer_info else None
+            if type(activation_function) == str:
+                activation_function = NetworkActivationFunction.get_type_by_name(activation_function)
             kernel_initializer = conv_layer_info[
                 'kernel_initializer'] if 'kernel_initializer' in conv_layer_info else NetworkInitializationType.ZEROS
+            if type(kernel_initializer) == str:
+                kernel_initializer = NetworkInitializationType.get_type_by_name(kernel_initializer)
             bias_initializer = conv_layer_info[
                 'bias_initializer'] if 'bias_initializer' in conv_layer_info else NetworkInitializationType.ZEROS
+            if type(bias_initializer) == str:
+                bias_initializer = NetworkInitializationType.get_type_by_name(bias_initializer)
             use_bias = conv_layer_info['use_bias'] if 'use_bias' in args else True
             self.network_layers.append(
                 ConvNetworkLayer(num_dimensions, num_filters, kernel_size, strides, is_transpose, activation_function,

@@ -37,7 +37,7 @@ class ActionValueNetwork:
         self.neural_network.build_model()
 
     def update_network(self, inputs, outputs):
-        self.neural_network.update_network(inputs, outputs)
+        self.neural_network.fit(inputs, outputs)
 
     def get_weights(self):
         return self.neural_network.model.get_weights()
