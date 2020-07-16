@@ -16,13 +16,15 @@ class SupervisedLearningHelper:
     label = ''
     historical_data = None
     model = None
+    enable_scaling = False
 
-    def __init__(self, method_type, csv_dir, features, label, filters={}):
+    def __init__(self, method_type, csv_dir, features, label, filters={}, enable_scaling=False):
         self.method_type = method_type
         self.csv_dir = csv_dir
         self.features = features
         self.label = label
         self.filters = filters
+        self.enable_scaling = enable_scaling
         cols = [feature for feature in self.features]
         cols.append(self.label)
         self.historical_data = load_from_directory(csv_dir, cols, filters, concat=True)
@@ -55,39 +57,35 @@ class SupervisedLearningHelper:
             return predictions[0]
 
     @staticmethod
-    def choose_helper(method_type, csv_dir, features, label, filters={}, dl_args=None, choosing_method='best'):
+    def choose_helper(method_type, csv_dir, features, label, filters={}, enable_scaling=False, dl_args=None, choosing_method='best'):
         if dl_args is None:
-            return ScikitLearnHelper(choosing_method, method_type, csv_dir, features, label, filters)
+            return ScikitLearnHelper(choosing_method, method_type, csv_dir, features, label, filters, enable_scaling)
         else:
-            return DeepLearningHelper(method_type, csv_dir, features, label, filters, dl_args)
+            return DeepLearningHelper(method_type, csv_dir, features, label, filters, enable_scaling, dl_args)
 
 
 class ScikitLearnHelper(SupervisedLearningHelper):
-    scaler_x = MinMaxScaler()
-    scaler_y = MinMaxScaler()
+    scaler = MinMaxScaler()
 
-    def __init__(self, choosing_method, method_type, csv_dir, features, label, filters={}):
+    def __init__(self, choosing_method, method_type, csv_dir, features, label, filters={}, enable_scaling=False):
         self.model = select_method(csv_dir, choosing_method, features, label, filters,
                                    method_type)
-        super().__init__(method_type, csv_dir, features, label)
+        super().__init__(method_type, csv_dir, features, label, filters, enable_scaling)
 
     def fit(self, x, y):
-        self.scaler_x.fit(x)
-        x = self.scaler_x.transform(x)
-        y = np.array([y]).reshape(-1, 1)
-        self.scaler_y.fit(y)
-        y = self.scaler_y.transform(y)
+        if self.enable_scaling:
+            x = self.scaler.fit_transform(x)
         super().fit(x, y)
 
     def predict(self, inputs):
-        self.scaler_x.fit(inputs)
-        inputs = self.scaler_x.transform(inputs)
+        if self.enable_scaling:
+            inputs = self.scaler.transform(inputs)
         return super().predict(inputs)
 
 
 class DeepLearningHelper(SupervisedLearningHelper):
 
-    def __init__(self, method_type, csv_dir, features, label, filters={}, dl_args={}):
-        dl_args.update({'num_inputs': len(features), 'num_outputs': 1})
+    def __init__(self, method_type, csv_dir, features, label, filters={}, enable_scaling=False, dl_args={}):
+        dl_args.update({'num_inputs': len(features), 'num_outputs': 1, 'enable_scaling': enable_scaling})
         self.model = NeuralNetwork.choose_neural_network(dl_args)
-        super().__init__(method_type, csv_dir, features, label, filters)
+        super().__init__(method_type, csv_dir, features, label, filters, enable_scaling)

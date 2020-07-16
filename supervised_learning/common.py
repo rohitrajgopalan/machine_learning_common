@@ -10,7 +10,7 @@ import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.linear_model import LogisticRegression, Lasso, Ridge
+from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression, ElasticNet
 from sklearn.model_selection import cross_validate
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
@@ -28,12 +28,14 @@ classifiers = {'Logistic Regression': LogisticRegression(),
                'Random Forest': RandomForestClassifier(),
                'K-Nearest Neighbors': KNeighborsClassifier(),
                'Bayes': GaussianNB()}
-regressors = {'Decision Tree': DecisionTreeRegressor(),
+regressors = {'Linear Regression': LinearRegression(),
+              'Decision Tree': DecisionTreeRegressor(),
               'Support Vector Machine': SVR(gamma='auto', kernel='rbf'),
               'Random Forest': RandomForestRegressor(),
               'K-Nearest Neighbour': KNeighborsRegressor(),
               'Lasso': Lasso(),
-              'Ridge': Ridge()}
+              'Ridge': Ridge(),
+              'Elastic Net': ElasticNet()}
 scoring = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
 metrics = ['Fitting time', 'Scoring time', 'Accuracy', 'Precision', 'Recall', 'F1 score', 'Area underneath the curve']
 
@@ -43,11 +45,10 @@ class MethodType(enum.Enum):
     Regression = 2
 
 
-scaler_x = MinMaxScaler()
-scaler_y = MinMaxScaler()
+scaler = MinMaxScaler()
 
 
-def train_test_split_from_data(df_from_each_file, num_test_files):
+def train_test_split_from_data(df_from_each_file, num_test_files, enable_scaling=True):
     if num_test_files > 0:
         training_sets = df_from_each_file[:len(df_from_each_file) - num_test_files]
         test_sets = df_from_each_file[len(df_from_each_file) - num_test_files:]
@@ -59,17 +60,13 @@ def train_test_split_from_data(df_from_each_file, num_test_files):
         label = cols[-1]
 
         train_x = training[features]
-        scaler_x.fit(train_x)
-        train_x = scaler_x.transform(train_x)
         train_y = np.array(training[label]).reshape(-1, 1)
-        scaler_y.fit(train_y)
-        train_y = scaler_y.transform(train_y)
         test_x = test[features]
-        scaler_x.fit(test_x)
-        test_x = scaler_x.transform(test_x)
         test_y = np.array(test[label]).reshape(-1, 1)
-        scaler_y.fit(test_y)
-        test_y = scaler_y.transform(test_y)
+
+        if enable_scaling:
+            train_x = scaler.fit_transform(train_x)
+            test_x = scaler.transform(test_x)
 
         return train_x, train_y, test_x, test_y
 
@@ -118,47 +115,48 @@ def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
     return pd.concat(df_from_each_file, ignore_index=True) if concat else df_from_each_file
 
 
-def perform_and_plot_experiment_on_data(csv_dir, methods):
+def perform_and_plot_experiment_on_data(csv_dir, method_type, enable_scaling):
     df_from_each_file = load_from_directory(csv_dir)
-    results, test_sizes = perform_experiment_on_data(df_from_each_file, methods, type)
+    results, test_sizes = perform_experiment_on_data(df_from_each_file, method_type, enable_scaling)
+    methods = classifiers if method_type == MethodType.Classification else regressors
     metrics_to_data, test_sizes = shape_experimental_data_for_plotting(results, test_sizes, methods)
     plot_data(metrics_to_data, test_sizes, methods)
 
 
-def perform_and_plot_experiment_on_data_with_classifiers(csv_dir):
-    perform_and_plot_experiment_on_data(csv_dir, classifiers)
+def perform_and_plot_experiment_on_data_with_classifiers(csv_dir, enable_scaling):
+    perform_and_plot_experiment_on_data(csv_dir, MethodType.Classification, enable_scaling)
 
 
-def perform_and_plot_experiment_on_data_with_regressors(csv_dir):
-    perform_and_plot_experiment_on_data(csv_dir, regressors)
+def perform_and_plot_experiment_on_data_with_regressors(csv_dir, enable_scaling):
+    perform_and_plot_experiment_on_data(csv_dir, MethodType.Regression, enable_scaling)
 
 
-def perform_experiment_on_data(df_from_each_file, methods, method_type):
+def perform_experiment_on_data(df_from_each_file, method_type, enable_scaling=True):
     results = {}
     test_sizes = []
     for num_test_files in range(1, int(len(df_from_each_file) / 5) + 1):
         test_sizes.append(num_test_files)
         if method_type == MethodType.Regression:
-            results[num_test_files] = run_with_different_methods(df_from_each_file, num_test_files, methods)
+            results[num_test_files] = run_with_different_regressors(df_from_each_file, num_test_files, enable_scaling)
         else:
-            results[num_test_files] = run_with_different_classifiers(df_from_each_file, num_test_files)
+            results[num_test_files] = run_with_different_classifiers(df_from_each_file, num_test_files, enable_scaling)
     return results, test_sizes
 
 
-def run_with_different_methods(df_from_each_file, num_test_files, methods):
-    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, num_test_files)
-    models_data = {'Model': list(methods.keys()),
+def run_with_different_regressors(df_from_each_file, num_test_files, enable_scaling=True):
+    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, num_test_files, enable_scaling)
+    models_data = {'Model': list(regressors.keys()),
                    'Accuracy': []}
-    for key in methods:
-        methods[key].fit(x_train, y_train)
-        accuracy = methods[key].score(x_test, y_test)
+    for key in regressors:
+        regressors[key].fit(x_train, y_train)
+        accuracy = regressors[key].score(x_test, y_test)
         models_data['Accuracy'].append(accuracy)
 
     return models_data
 
 
-def run_with_different_classifiers(df_from_each_file, num_test_files):
-    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, num_test_files)
+def run_with_different_classifiers(df_from_each_file, num_test_files, enable_scaling=True):
+    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, num_test_files, enable_scaling)
     models_data = {'Model': list(classifiers.keys()),
                    'Fitting time': [],
                    'Scoring time': [],
@@ -198,13 +196,13 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics=[
 
 
 def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', features=[], label='', filters={},
-                       method_type=MethodType.Classification):
+                       method_type=MethodType.Classification, enable_scaling=True):
     cols = features
     cols.append(label)
     cols = list(np.unique(cols))
     df_from_each_file = load_from_directory(csv_dir, cols, filters)
     method_names = list(methods.keys())
-    results, test_sizes = perform_experiment_on_data(df_from_each_file, methods, method_type)
+    results, test_sizes = perform_experiment_on_data(df_from_each_file, method_type, enable_scaling)
     metrics_to_data, _ = shape_experimental_data_for_plotting(results, test_sizes, methods)
     if metric not in metrics_to_data:
         return None
@@ -225,11 +223,12 @@ def select_best_method(csv_dir, methods, best_type='', metric='Accuracy', featur
 
 
 def select_method(csv_dir, choosing_method='best', features=[], label='', filters={},
-                  method_type=MethodType.Classification):
+                  method_type=MethodType.Classification, enable_scaling=True):
+    chosen_method = None
     methods = classifiers if method_type == MethodType.Classification else regressors
     if choosing_method == 'best':
         chosen_method = select_best_method(csv_dir, methods, features=features, label=label, filters=filters,
-                                           method_type=method_type)
+                                           method_type=method_type, enable_scaling=enable_scaling)
     elif choosing_method == 'random':
         chosen_method = randomly_select_method(methods)
     elif choosing_method in methods.keys():

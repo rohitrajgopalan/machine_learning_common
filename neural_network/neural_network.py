@@ -11,8 +11,7 @@ class NeuralNetwork:
     optimizer = None
     loss_function = ''
     enable_scaling = False
-    scaler_x = MinMaxScaler()
-    scaler_y = MinMaxScaler()
+    scaler = MinMaxScaler()
 
     def build_model(self):
         self.model = tf.keras.models.Sequential()
@@ -35,17 +34,12 @@ class NeuralNetwork:
 
     def predict(self, inputs):
         if self.enable_scaling:
-            self.scaler_x.fit(inputs)
-            inputs = self.scaler_x.transform(inputs)
+            inputs = self.scaler.transform(inputs)
         return self.model.predict(inputs)
 
     def fit(self, inputs, outputs):
         if self.enable_scaling:
-            self.scaler_x.fit(inputs)
-            inputs = self.scaler_x.transform(inputs)
-            outputs = np.array(outputs).reshape(-1, 1)
-            self.scaler_y.fit(outputs)
-            outputs = self.scaler_y.transform(outputs)
+            inputs = self.scaler.fit_transform(inputs)
         self.model.fit(inputs, outputs, verbose=0)
 
     def parse_dense_layer_info(self, num_inputs, num_outputs, dense_layer_info_list=[], set_input_shape=True):
