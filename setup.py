@@ -8,6 +8,6 @@ setup(name='ai-ml-common',
       license='MIT',
       packages=find_packages(),
       install_requires=[
-        'numpy', 'pandas', 'scikit-learn', 'tensorflow', 'matplotlib'
+        'numpy', 'pandas', 'scikit-learn', 'tensorflow', 'matplotlib', 'xlrd'
       ],
       zip_safe=False)

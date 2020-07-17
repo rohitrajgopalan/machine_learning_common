@@ -14,7 +14,6 @@ from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegress
 from sklearn.model_selection import cross_validate
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
@@ -84,14 +83,29 @@ def plot_data(metrics_to_data, test_sizes, methods):
         print()
 
 
-def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
-    datasets = [join(csv_dir, csv) for csv in listdir(csv_dir) if isfile(join(csv_dir, csv))]
-    label = cols[len(cols) - 1]
+def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name=''):
+    data_files = [join(files_dir, f) for f in listdir(files_dir) if
+                  isfile(join(files_dir, f))]
 
     df_from_each_file = []
 
-    for csv in datasets:
-        df = pd.read_csv(csv)
+    for f in data_files:
+        df = None
+        if f.endswith(".csv"):
+            df = pd.read_csv(f)
+        elif f.endswith(".json"):
+            df = pd.read_json(f)
+        elif f.endswith(".xls") or f.endswith(".xlsx"):
+            if len(sheet_name) > 0:
+                df = pd.read_excel(f, sheet_name=sheet_name)
+            else:
+                df = pd.read_excel(f)
+        if df is not None and len(df.index) > 0:
+            df_from_each_file.append(df)
+
+    filtered_dfs = []
+
+    for df in df_from_each_file:
         if not bool(filters):
             for key in filters:
                 df = df.loc[df[key] == filters[key]]
@@ -99,6 +113,11 @@ def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
                     break
         if df is None or len(df.index) == 0:
             continue
+        if len(cols) > 0:
+            label = cols[-1]
+        else:
+            df_columns = df.columns
+            label = df_columns[-1]
         if not is_numeric_dtype(df[label]):
             unique_labels = list(np.unique(df[label]))
             if unique_labels == ['True', 'False']:
@@ -108,11 +127,12 @@ def load_from_directory(csv_dir, cols=[], filters={}, concat=False):
                 for i, unique_label in enumerate(unique_labels):
                     replace_dict.update({unique_label: i + 1})
             df.replace({label: replace_dict})
-        df = df[cols]
+        if len(cols) > 0:
+            df = df[cols]
         if df is not None and len(df.index) > 0:
-            df_from_each_file.append(df)
+            filtered_dfs.append(df)
 
-    return pd.concat(df_from_each_file, ignore_index=True) if concat else df_from_each_file
+    return pd.concat(filtered_dfs, ignore_index=True) if concat else filtered_dfs
 
 
 def perform_and_plot_experiment_on_data(csv_dir, method_type, enable_scaling):
@@ -231,8 +251,11 @@ def select_method(csv_dir, choosing_method='best', features=[], label='', filter
                                            method_type=method_type, enable_scaling=enable_scaling)
     elif choosing_method == 'random':
         chosen_method = randomly_select_method(methods)
-    elif choosing_method in methods.keys():
-        chosen_method = methods[choosing_method]
+    else:
+        for method_name in methods.keys():
+            if method_name.lower() == choosing_method.lower():
+                chosen_method = methods[method_name]
+                break
     return chosen_method
 
 
