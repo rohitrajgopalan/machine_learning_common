@@ -16,7 +16,7 @@ class RLSupervisedHelper:
                 features.append('STATE_VAR{0}'.format(i))
         features.append('INITIAL_ACTION')
         self.supervised_learning_helper = SupervisedLearningHelper.choose_helper(method_type, csv_dir, features, label,
-                                                                                 filters, dl_args)
+                                                                                 filters, False, dl_args, 'best', '')
 
     def add(self, state, action, target_value):
         new_data = {'INITIAL_ACTION': action}
@@ -33,5 +33,5 @@ class RLSupervisedHelper:
         else:
             input_x = list(state)
         input_x.append(action)
-        inputs = np.array([input_x])
+        inputs = np.array([input_x]).reshape(-1, 1)
         return self.supervised_learning_helper.predict(inputs)
