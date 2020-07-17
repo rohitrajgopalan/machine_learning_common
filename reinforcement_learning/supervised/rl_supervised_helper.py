@@ -28,10 +28,12 @@ class RLSupervisedHelper:
         self.supervised_learning_helper.add(new_data, target_value)
 
     def predict(self, state, action):
+        input_x = []
         if self.state_dim == 1:
-            input_x = [state]
+            input_x.append(state)
         else:
-            input_x = list(state)
+            for i in range(self.state_dim):
+                input_x.append(state[i])
         input_x.append(action)
-        inputs = np.array([input_x]).reshape(-1, 1)
+        inputs = np.array([input_x]).reshape(-1, len(input_x))
         return self.supervised_learning_helper.predict(inputs)
