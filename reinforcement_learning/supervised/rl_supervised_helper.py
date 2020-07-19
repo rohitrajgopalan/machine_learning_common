@@ -35,5 +35,5 @@ class RLSupervisedHelper:
             for i in range(self.state_dim):
                 input_x.append(state[i])
         input_x.append(action)
-        inputs = np.array([input_x]).reshape(-1, len(input_x))
+        inputs = np.array([input_x])
         return self.supervised_learning_helper.predict(inputs)
