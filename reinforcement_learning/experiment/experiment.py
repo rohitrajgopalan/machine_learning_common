@@ -15,7 +15,7 @@ from reinforcement_learning.policy.choose_policy import choose_policy
 
 class Experiment:
     hyper_parameters_data = None
-    cols = ['ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'GAMMA',
+    cols = ['ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'GAMMA', 'ENABLE_DOUBLE_LEARNING',
             'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'ENABLE_ITERATOR', 'ITERATOR_HELPER', 'OPTIMIZER',
             'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'NUM_REPLAY', 'BUFFER_SIZE', 'MINI_BATCH_SIZE',
             'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
@@ -102,6 +102,7 @@ class Experiment:
                  'HYPER_PARAMETER': hyper_parameter_val,
                  'GAMMA': run_info['algorithm_args'][
                          'discount_factor'],
+                 'ENABLE_DOUBLE_LEARNING': 'Yes' if run_info['enable_double_learning'] else 'No',
                  'ENABLE_ACTION_BLOCKING': 'Yes' if run_info[
                          'enable_action_blocking'] else 'No',
                  'ACTION_BLOCKING_HELPER': 'Scikit-Learn' if
@@ -292,6 +293,7 @@ class Experiment:
                                                     for learning_type in chosen_learning_types:
                                                         run_info['learning_type'] = learning_type
                                                         for is_double_agent in chosen_double_agent_flags:
+                                                            run_info['enable_double_learning'] = is_double_agent
                                                             agents = []
                                                             for i, agent_info in enumerate(agents_info_list):
                                                                 agent_info.update({'agent_id': i + 1,
@@ -331,11 +333,8 @@ class Experiment:
                                                                 self.process_run(run_info, agents, run_times,
                                                                                  time_steps)
 
-                self.hyper_parameters_data.to_csv(
-                        '{0}'.format(os.path.join(self.output_dir, 'run_summary_{0}.csv'.format(self.dt_str))), index=False)
-                self.agents_data.to_csv(
-                        '{0}'.format(os.path.join(self.output_dir, 'agents_data_{0}.csv'.format(self.dt_str))),
-                        index=False)
+        self.hyper_parameters_data.to_csv('{0}'.format(os.path.join(self.output_dir, 'run_summary_{0}.csv'.format(self.dt_str))), index=False)
+        self.agents_data.to_csv('{0}'.format(os.path.join(self.output_dir, 'agents_data_{0}.csv'.format(self.dt_str))), index=False)
 
     def perform_run(self, run_info={}):
         agents = run_info['agents']
