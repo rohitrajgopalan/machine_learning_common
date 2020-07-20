@@ -170,7 +170,7 @@ class Agent:
         if len(actions_from_csv) > 0:
             self.actions = actions_from_csv
 
-    def load_actions_from_npy(npy_file):
+    def load_actions_from_npy(self, npy_file):
         actions_from_npy = np.load(npy_file)
         for a_index in range(actions_from_npy.shape[0]):
             action = actions_from_npy[a_index]
