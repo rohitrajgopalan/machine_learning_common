@@ -19,8 +19,12 @@ class Policy:
         max_value = np.max(action_values)
         ties = []
         for i in range(self.num_actions):
-            if action_values[0, i] == max_value:
-                ties.append(i)
+            if action_values.shape == (1, self.num_actions):
+                if action_values[0, i] == max_value:
+                    ties.append(i)
+            else:
+                if action_values[i] == max_value:
+                    ties.append(i)
         return ties
 
     def add_action(self):
