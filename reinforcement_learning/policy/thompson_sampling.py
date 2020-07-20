@@ -38,4 +38,4 @@ class ThompsonSampling(Policy):
     def add_action(self):
         super().add_action()
         self.alpha = np.append(self.alpha, np.ones(1))
-        self.beta = np.append(self.alpha, np.ones(1))
+        self.beta = np.append(self.beta, np.ones(1))
