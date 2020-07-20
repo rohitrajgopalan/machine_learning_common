@@ -255,7 +255,7 @@ class Agent:
         elif type(self.algorithm.policy) == EpsilonGreedy:
             hyperparameter_value = getattr(self.algorithm.policy, 'epsilon')
 
-        new_data.update({'INITIAL_ACTION': self.initial_action,
+        new_data.update({'INITIAL_ACTION': self.initial_action-1 if 'SAMPLE' in self.actions else self.initial_action,
                          'REWARD': r,
                          'ALGORITHM': '{0}{1}'.format(self.algorithm.algorithm_name.name,
                                                       '_LAMBDA' if 'Lambda' in self.algorithm.__class__.__name__ else ''),
@@ -271,14 +271,13 @@ class Agent:
 
     def choose_next_action(self):
         self.initial_action = self.algorithm.policy.choose_action(self.current_state, self.policy_network)
-
         if self.enable_action_blocking and self.initial_action is not None and self.action_blocker.should_we_block_action(
                 self.current_state,
-                self.initial_action):
-            other_actions = [action for action in range(len(self.actions)) if not action == self.initial_action]
+                self.initial_action-1 if 'SAMPLE' in self.actions else self.initial_action):
+            other_actions = [action for action in range(len(self.actions)) if not action == self.initial_action and not action == 'SAMPLE']
             self.actual_action = None
             for action in other_actions:
-                if not self.action_blocker.should_we_block_action(self.current_state, action):
+                if not self.action_blocker.should_we_block_action(self.current_state, action-1 if 'SAMPLE' in self.actions else action):
                     self.actual_action = action
                     break
             self.did_block_action = True
