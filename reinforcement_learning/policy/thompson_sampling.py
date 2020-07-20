@@ -14,7 +14,7 @@ class ThompsonSampling(Policy):
         self.beta = np.ones(self.num_actions)
 
     def generate_theta(self):
-        return np.random.beta(self.alpha, self.beta).reshape(1, self.num_actions)
+        return np.random.beta(self.alpha, self.beta)
 
     def derive_policy_based_from_values(self, action_values):
         policy_probs = np.zeros(self.num_actions)

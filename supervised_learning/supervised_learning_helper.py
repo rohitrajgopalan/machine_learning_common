@@ -51,11 +51,7 @@ class SupervisedLearningHelper:
         self.model.fit(x, y)
 
     def predict(self, inputs):
-        predictions = self.model.predict(inputs)
-        try:
-            return predictions[0, 0]
-        except IndexError:
-            return predictions[0]
+        return self.model.predict(inputs)
 
     @staticmethod
     def choose_helper(method_type, files_dir, features, label, filters={}, enable_scaling=False, dl_args=None, choosing_method='best', sheet_name=''):
@@ -70,7 +66,8 @@ class ScikitLearnHelper(SupervisedLearningHelper):
 
     def __init__(self, choosing_method, method_type, files_dir, features, label, filters={}, enable_scaling=False, sheet_name=''):
         self.model = select_method(files_dir, choosing_method, features, label, filters,
-                                   method_type)
+                                   method_type, enable_scaling, sheet_name)
+        assert self.model is not None
         super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name)
 
     def fit(self, x, y):

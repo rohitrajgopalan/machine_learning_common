@@ -36,4 +36,8 @@ class RLSupervisedHelper:
                 input_x.append(state[i])
         input_x.append(action)
         inputs = np.array([input_x])
-        return self.supervised_learning_helper.predict(inputs)
+        predictions = self.supervised_learning_helper.predict(inputs)
+        try:
+            return predictions[0, 0]
+        except IndexError:
+            return predictions[0]

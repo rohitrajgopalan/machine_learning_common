@@ -14,8 +14,7 @@ class UCB(Policy):
 
     def generate_confidence(self):
         ln_timestep = np.log(np.full(self.num_actions, self.time_step_counter))
-        confidence = self.ucb_c * np.sqrt(ln_timestep / self.N)
-        return confidence.reshape(1, self.num_actions)
+        return self.ucb_c * np.sqrt(ln_timestep / self.N)
 
     def derive_policy_based_from_values(self, action_values):
         policy_probs = np.zeros(self.num_actions)
