@@ -11,6 +11,11 @@ class StaticPolicy(Policy):
         super().__init__(args)
         if 'policy_csv_file' in args:
             self.load_policy_from_csv(args['policy_csv_file'])
+        elif 'policy_dir' in args:
+            files_dir = args['policy_dir']
+            data_files = [join(files_dir, f) for f in listdir(files_dir) if isfile(join(files_dir, f))]
+            for csv_file in data_files:
+                self.load_policy_from_csv(csv_file)
 
     def load_policy_from_csv(self, csv_file):
         df = pd.read_csv(csv_file)
