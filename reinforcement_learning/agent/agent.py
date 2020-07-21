@@ -63,14 +63,17 @@ class Agent:
         self.did_block_action = False
         actions_csv_file = ''
         actions_npy_file = ''
+        actions_dir = ''
 
         if args is None:
             args = {}
         for key in args:
-            if 'actions_csv_file' in key:
+            if key == 'actions_csv_file':
                 actions_csv_file = args[key]
-            elif 'actions_npy_file' in key:
+            elif key == 'actions_npy_file':
                 actions_npy_file = args[key]
+            elif key == 'actions_dir':
+                actions_dir = args[key]
             else:
                 setattr(self, key, args[key])
 
@@ -106,6 +109,8 @@ class Agent:
             self.load_actions_from_csv(actions_csv_file)
         elif len(actions_npy_file) > 0:
             self.load_actions_from_npy(actions_npy_file)
+        elif len(actions_dir) > 0:
+            self.load_actions_from_dir(actions_dir)
         
         self.reset()
 
@@ -166,17 +171,28 @@ class Agent:
                         action = np.array([actions])
             else:
                 action = row['ACTION']
-            actions_from_csv.append(action)
-        if len(actions_from_csv) > 0:
-            self.actions = actions_from_csv
+            a_index_, does_exist = self.does_action_already_exist(action)
+            if not does_exist:
+                self.actions.append(action)
 
     def load_actions_from_npy(self, npy_file):
         actions_from_npy = np.load(npy_file)
+        if len(actions_from_npy.shape) == 3:
+            _,_,n_elements = actions_from_npy.shape
+            actions_from_npy = actions_from_npy.reshape(-1, n_elements)
         for a_index in range(actions_from_npy.shape[0]):
             action = actions_from_npy[a_index]
             a_index_, does_exist = self.does_action_already_exist(action)
             if not does_exist:
                 self.actions.append(action)
+
+    def load_actions_from_dir(self, actions_dir):
+        data_files = [join(actions_dir, f) for f in listdir(actions_dir) if isfile(join(actions_dir, f))]
+        for file in data_files:
+            if file.endswith('.csv'):
+                self.load_actions_from_csv(file)
+            elif file.endswith('.npy'):
+                self.load_actions_from_npy(file)
 
     def does_action_already_exist(self, action_in_question):
         for a, action in enumerate(self.actions):
