@@ -4,7 +4,6 @@ import warnings
 from os import listdir
 from os.path import join, isfile
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
@@ -14,10 +13,9 @@ from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegress
 from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import RobustScaler, Normalizer
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.metrics import mean_squared_error
 
 warnings.filterwarnings('ignore')
 classifiers = {'Logistic Regression': LogisticRegression(),
@@ -36,8 +34,14 @@ regressors = {'Linear Regression': LinearRegression(),
               'Lasso': Lasso(),
               'Ridge': Ridge(),
               'Elastic Net': ElasticNet()}
-scoring = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
-metrics = ['Fitting time', 'Scoring time', 'Accuracy', 'Precision', 'Recall', 'F1 score', 'Area underneath the curve']
+scoring_classifiers = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
+scoring_regressors = ['explained_variance', 'max_error', 'neg_mean_absolute_error', 'neg_mean_squared_error',
+                      'neg_root_mean_squared_error', 'neg_median_absolute_error', 'r2']
+metrics_classifiers = ['Fitting time', 'Scoring time', 'Accuracy', 'Precision', 'Recall', 'F1 score',
+                       'Area underneath the curve']
+metrics_regressors = ['Explained Variance', 'Max Error', 'Mean Absolute Error', 'Mean Squared Error',
+                      'Root Mean Squared Error',
+                      'Median Absolute Error', 'R2 Score']
 
 
 class MethodType(enum.Enum):
@@ -45,10 +49,13 @@ class MethodType(enum.Enum):
     Regression = 2
 
 
-scaler = MinMaxScaler()
+# scaler = MinMaxScaler()
+scaler = RobustScaler()
+normalizer = Normalizer()
 
 
-def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_files=0, test_size=0):
+def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_files=0, test_size=0,
+                               enable_normalization=False):
     if num_test_files > 0:
         training_sets = df_from_each_file[:len(df_from_each_file) - num_test_files]
         test_sets = df_from_each_file[len(df_from_each_file) - num_test_files:]
@@ -59,9 +66,9 @@ def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_
         features = cols[:len(cols) - 1]
         label = cols[-1]
 
-        train_x = training[features]
+        train_x = np.array([training[features]]).reshape(-1, len(features))
         train_y = np.array(training[label]).reshape(-1, 1)
-        test_x = test[features]
+        test_x = np.array([test[features]]).reshape(-1, len(features))
         test_y = np.array(test[label]).reshape(-1, 1)
 
     else:
@@ -69,28 +76,26 @@ def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_
         cols = [col for col in df.columns]
         features = cols[:len(cols) - 1]
         label = cols[-1]
-        X = df[features]
+        x = np.array([df[features]]).reshape(-1, len(features))
         y = df[label]
-        train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=test_size)
+        if test_size > 0:
+            train_x, test_x, train_y, test_y = train_test_split(x, y, test_size=test_size)
+        else:
+            train_x = x
+            train_y = y
+            test_x = None
+            test_y = None
 
     if enable_scaling:
         train_x = scaler.fit_transform(train_x)
-        test_x = scaler.transform(test_x)
+        if test_x is not None:
+            test_x = scaler.transform(test_x)
+    if enable_normalization:
+        train_x = normalizer.fit_transform(train_x)
+        if test_x is not None:
+            test_x = normalizer.transform(test_x)
 
     return train_x, train_y, test_x, test_y
-
-
-def plot_data(metrics_to_data, test_sizes, methods):
-    method_names = list(methods.keys())
-    for metric in metrics_to_data:
-        for i in range(len(method_names)):
-            plt.plot(test_sizes, metrics_to_data[metric][i], label=method_names[i])
-        plt.xlabel('Number of Test Files')
-        plt.ylabel(metric)
-        plt.title('Comparing {0} values between methods'.format(metric))
-        plt.legend()
-        plt.show()
-        print()
 
 
 def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name=''):
@@ -140,81 +145,52 @@ def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name
     return pd.concat(filtered_dfs, ignore_index=True) if concat else filtered_dfs
 
 
-def perform_and_plot_experiment_on_data(csv_dir, method_type, enable_scaling):
-    df_from_each_file = load_from_directory(csv_dir)
-    results, test_sizes = perform_experiment_on_data(df_from_each_file, method_type, enable_scaling)
-    methods = classifiers if method_type == MethodType.Classification else regressors
-    metrics_to_data, test_sizes = shape_experimental_data_for_plotting(results, test_sizes, methods)
-    plot_data(metrics_to_data, test_sizes, methods)
-
-
-def perform_and_plot_experiment_on_data_with_classifiers(csv_dir, enable_scaling):
-    perform_and_plot_experiment_on_data(csv_dir, MethodType.Classification, enable_scaling)
-
-
-def perform_and_plot_experiment_on_data_with_regressors(csv_dir, enable_scaling):
-    perform_and_plot_experiment_on_data(csv_dir, MethodType.Regression, enable_scaling)
-
-
-def perform_experiment_on_data(df_from_each_file, method_type, enable_scaling=True):
+def perform_experiment_on_data(df_from_each_file, method_type, enable_scaling=True, enable_normalization=True):
     results = {}
     test_sizes = []
     max_num_test_files = int(len(df_from_each_file) / 5)
     if max_num_test_files >= 1:
         for num_test_files in range(1, max_num_test_files + 1):
             test_sizes.append(num_test_files)
-            if method_type == MethodType.Regression:
-                results[num_test_files] = run_with_different_regressors(df_from_each_file, enable_scaling, num_test_files=num_test_files)
-            else:
-                results[num_test_files] = run_with_different_classifiers(df_from_each_file, enable_scaling, num_test_files=num_test_files)
+            results[num_test_files] = run_with_different_methods(method_type, df_from_each_file, enable_scaling,
+                                                                 num_test_files=num_test_files,
+                                                                 enable_normalization=enable_normalization)
     else:
         for test_size in list(np.arange(0.01, 0.2, 0.01)):
             test_sizes.append(test_size)
-            if method_type == MethodType.Regression:
-                results[test_size] = run_with_different_regressors(df_from_each_file, enable_scaling, test_size=test_size)
-            else:
-                results[test_size] = run_with_different_classifiers(df_from_each_file, enable_scaling, test_size=test_size)
+            results[test_size] = run_with_different_methods(method_type, df_from_each_file, enable_scaling,
+                                                            test_size=test_size,
+                                                            enable_normalization=enable_normalization)
     return results, test_sizes
 
 
-def run_with_different_regressors(df_from_each_file, enable_scaling=True, num_test_files=0, test_size=0):
-    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, enable_scaling, num_test_files, test_size)
-    models_data = {'Model': list(regressors.keys()),
-                   'Mean Squared Error': []}
-    for key in regressors:
-        regressors[key].fit(x_train, y_train)
-        y_pred = regressors[key].predict(x_test)
-        models_data['Mean Squared Error'].append(mean_squared_error(y_test, y_pred))
-
-    return models_data
-
-
-def run_with_different_classifiers(df_from_each_file, enable_scaling=True, num_test_files=0, test_size=0):
-    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, enable_scaling, num_test_files, test_size)
-    models_data = {'Model': list(classifiers.keys()),
-                   'Fitting time': [],
-                   'Scoring time': [],
-                   'Accuracy': [],
-                   'Precision': [],
-                   'Recall': [],
-                   'F1 score': [],
-                   'Area underneath the curve': []}
-    for key in classifiers:
-        scores = cross_validate(classifiers[key], x_train, y_train, scoring=scoring)
+def run_with_different_methods(method_type, df_from_each_file, enable_scaling=True, num_test_files=0, test_size=0,
+                               enable_normalization=True):
+    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, enable_scaling, num_test_files,
+                                                                  test_size, enable_normalization)
+    methods = classifiers if method_type == MethodType.Classification else regressors
+    metrics = metrics_classifiers if method_type == MethodType.Classification else metrics_regressors
+    scoring = scoring_classifiers if method_type == MethodType.Classification else scoring_regressors
+    cv = 5 if method_type == MethodType.Classification else 10
+    models_data = {'Model': list(methods.keys()),
+                   'Fitting Time': [],
+                   'Scoring Time': []}
+    for metric in metrics:
+        models_data.update({metric: []})
+    for key in methods:
+        scores = cross_validate(methods[key], x_train, y_train, scoring=scoring, cv=cv)
         sorted(scores.keys())
-
-        models_data['Fitting time'].append(scores['fit_time'].mean())
-        models_data['Scoring time'].append(scores['score_time'].mean())
-        models_data['Accuracy'].append(scores['test_accuracy'].mean())
-        models_data['Precision'].append(scores['test_precision_macro'].mean())
-        models_data['Recall'].append(scores['test_recall_macro'].mean())
-        models_data['F1 score'].append(scores['test_f1_weighted'].mean())
-        models_data['Area underneath the curve'].append(scores['test_roc_auc'].mean())
-
+        models_data['Fitting Time'].append(scores['fit_time'].mean())
+        models_data['Scoring Time'].append(scores['score_time'].mean())
+        for i, metric in enumerate(metrics):
+            average_value = scores['test_{0}'.format(scoring[i])].mean()
+            if average_value < 0:
+                average_value *= -1
+            models_data[metric].append(average_value)
     return models_data
 
 
-def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics=['Accuracy']):
+def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
     metrics_to_data = {}
     method_names = list(methods.keys())
     for metric in metrics:
@@ -230,27 +206,28 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics=[
 
 
 def select_best_method(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={},
-                       method_type=MethodType.Classification, enable_scaling=True, sheet_name=''):
+                       method_type=MethodType.Classification, enable_scaling=True, sheet_name='',
+                       enable_normalization=True):
     cols = features
     cols.append(label)
     cols = list(np.unique(cols))
     df_from_each_file = load_from_directory(csv_dir, cols, filters, sheet_name=sheet_name)
     methods = classifiers if method_type == MethodType.Classification else regressors
-    chosen_metric = 'Mean Squared Error' if method_type == MethodType.Regression else metric
     method_names = list(methods.keys())
-    results, test_sizes = perform_experiment_on_data(df_from_each_file, method_type, enable_scaling)
-    chosen_metrics = ['Mean Squared Error'] if method_type == MethodType.Regression else metrics
+    results, test_sizes = perform_experiment_on_data(df_from_each_file, method_type, enable_scaling,
+                                                     enable_normalization)
+    chosen_metrics = metrics_regressors if method_type == MethodType.Regression else metrics_classifiers
     metrics_to_data, _ = shape_experimental_data_for_plotting(results, test_sizes, methods, chosen_metrics)
     if metric not in metrics_to_data:
         return None
     else:
-        dataset = metrics_to_data[chosen_metric]
+        dataset = metrics_to_data[metric]
         metric_values = []
         for i in range(len(method_names)):
             if best_type == 'average':
                 metric_values.append(np.mean(dataset[i]))
             else:
-                if chosen_metric.endswith('time') or chosen_metric.lower() == 'mean squared error':
+                if metric.endswith('time') or metric.lower() == 'mean squared error':
                     metric_values.append(np.min(dataset[i]))
                 else:
                     metric_values.append(np.max(dataset[i]))
@@ -260,14 +237,14 @@ def select_best_method(csv_dir, best_type='', metric='Accuracy', features=[], la
 
 
 def select_method(csv_dir, choosing_method='best', features=[], label='', filters={},
-                  method_type=MethodType.Classification, enable_scaling=True, sheet_name=''):
+                  method_type=MethodType.Classification, enable_scaling=True, sheet_name='', enable_normalization=True):
     chosen_method = None
     metric = 'Accuracy' if method_type == MethodType.Classification else 'Mean Squared Error'
     methods = classifiers if method_type == MethodType.Classification else regressors
     if choosing_method == 'best':
         chosen_method = select_best_method(csv_dir, features=features, label=label, filters=filters,
                                            method_type=method_type, enable_scaling=enable_scaling, metric=metric,
-                                           sheet_name=sheet_name)
+                                           sheet_name=sheet_name, enable_normalization=enable_normalization)
     elif choosing_method == 'random':
         chosen_method = randomly_select_method(methods)
     else:

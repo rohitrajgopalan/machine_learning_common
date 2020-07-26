@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import RobustScaler, Normalizer
 
 from .network_layer import *
 from .network_types import NetworkOptimizer
@@ -11,7 +11,9 @@ class NeuralNetwork:
     optimizer = None
     loss_function = ''
     enable_scaling = False
-    scaler = MinMaxScaler()
+    enable_normalization = False
+    scaler = RobustScaler()
+    normalizer = Normalizer()
 
     def build_model(self):
         self.model = tf.keras.models.Sequential()
@@ -35,11 +37,15 @@ class NeuralNetwork:
     def predict(self, inputs):
         if self.enable_scaling:
             inputs = self.scaler.transform(inputs)
+        if self.enable_normalization:
+            inputs = self.normalizer.transform(inputs)
         return self.model.predict(inputs)
 
     def fit(self, inputs, outputs):
         if self.enable_scaling:
             inputs = self.scaler.fit_transform(inputs)
+        if self.enable_normalization:
+            inputs = self.normalizer.fit_transform(inputs)
         self.model.fit(inputs, outputs, verbose=0)
 
     def parse_dense_layer_info(self, num_inputs, num_outputs, dense_layer_info_list=[], set_input_shape=True):
@@ -114,6 +120,7 @@ class ObservationNeuralNetwork(NeuralNetwork):
             self.network_layers.append(
                 DenseNetworkLayer(num_outputs, activation_function, kernel_initializer, bias_initializer, use_bias))
         self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
+        self.enable_normalization = args['enable_normalization'] if 'enable_normalization' else False
         self.build_model()
 
 
@@ -155,4 +162,6 @@ class ImageFrameNeuralNetwork(NeuralNetwork):
         self.network_layers.append(Flatten())
         self.parse_dense_layer_info(num_inputs, num_outputs,
                                     args['dense_layer_info_list'] if 'dense_layer_info_list' else [], False)
+        self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
+        self.enable_normalization = args['enable_normalization'] if 'enable_normalization' else False
         self.build_model()
