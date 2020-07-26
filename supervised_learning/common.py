@@ -173,6 +173,8 @@ def run_with_different_methods(method_type, df_from_each_file, enable_scaling=Tr
     scoring = scoring_classifiers if method_type == MethodType.Classification else scoring_regressors
     cv = 5 if method_type == MethodType.Classification else 10
     models_data = {'Model': list(methods.keys()),
+                   'Enable Scaling': ['Yes' if enable_scaling else 'No'] * len(methods.keys()),
+                   'Enable Normalization': ['Yes' if enable_normalization else 'No'] * len(methods.keys()),
                    'Fitting Time': [],
                    'Scoring Time': []}
     for metric in metrics:
