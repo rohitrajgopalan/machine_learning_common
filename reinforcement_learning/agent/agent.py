@@ -1,4 +1,7 @@
 import enum
+from os import listdir
+from os.path import join, isfile
+
 import numpy as np
 import pandas as pd
 
@@ -111,7 +114,7 @@ class Agent:
             self.load_actions_from_npy(actions_npy_file)
         elif len(actions_dir) > 0:
             self.load_actions_from_dir(actions_dir)
-        
+
         self.reset()
 
     def blocker_init(self, csv_dir, dl_args=None):
@@ -142,7 +145,6 @@ class Agent:
 
     def load_actions_from_csv(self, csv_file):
         df = pd.read_csv(csv_file)
-        actions_from_csv = []
         for index, row in df.iterrows():
             if 'TYPE' in df.columns:
                 action_type = row['TYPE']
@@ -178,7 +180,7 @@ class Agent:
     def load_actions_from_npy(self, npy_file):
         actions_from_npy = np.load(npy_file)
         if len(actions_from_npy.shape) == 3:
-            _,_,n_elements = actions_from_npy.shape
+            _, _, n_elements = actions_from_npy.shape
             actions_from_npy = actions_from_npy.reshape(-1, n_elements)
         for a_index in range(actions_from_npy.shape[0]):
             action = actions_from_npy[a_index]
@@ -197,12 +199,12 @@ class Agent:
     def does_action_already_exist(self, action_in_question):
         for a, action in enumerate(self.actions):
             if type(action) == np.ndarray and type(action_in_question) == np.ndarray:
-                if np.array_equal(action,action_in_question):
+                if np.array_equal(action, action_in_question):
                     return a, True
             elif action == action_in_question:
                 return a, True
         return -1, False
-    
+
     def add_action(self, action):
         a_index, does_exist = self.does_action_already_exist(action)
         if does_exist:
@@ -213,7 +215,7 @@ class Agent:
             if self.is_double_agent:
                 self.target_network.add_action()
             self.algorithm.policy.add_action()
-            return len(self.actions)-1
+            return len(self.actions) - 1
 
     def network_init(self, action_network_args):
         action_network_args.update({'num_inputs': self.state_dim, 'num_outputs': len(self.actions)})
@@ -271,7 +273,7 @@ class Agent:
         elif type(self.algorithm.policy) == EpsilonGreedy:
             hyperparameter_value = getattr(self.algorithm.policy, 'epsilon')
 
-        new_data.update({'INITIAL_ACTION': self.initial_action-1 if 'SAMPLE' in self.actions else self.initial_action,
+        new_data.update({'INITIAL_ACTION': self.initial_action - 1 if 'SAMPLE' in self.actions else self.initial_action,
                          'REWARD': r,
                          'ALGORITHM': '{0}{1}'.format(self.algorithm.algorithm_name.name,
                                                       '_LAMBDA' if 'Lambda' in self.algorithm.__class__.__name__ else ''),
@@ -289,11 +291,13 @@ class Agent:
         self.initial_action = self.algorithm.policy.choose_action(self.current_state, self.policy_network)
         if self.enable_action_blocking and self.initial_action is not None and self.action_blocker.should_we_block_action(
                 self.current_state,
-                self.initial_action-1 if 'SAMPLE' in self.actions else self.initial_action):
-            other_actions = [action for action in range(len(self.actions)) if not action == self.initial_action and not action == 'SAMPLE']
+                self.initial_action - 1 if 'SAMPLE' in self.actions else self.initial_action):
+            other_actions = [action for action in range(len(self.actions)) if
+                             not action == self.initial_action and not action == 'SAMPLE']
             self.actual_action = None
             for action in other_actions:
-                if not self.action_blocker.should_we_block_action(self.current_state, action-1 if 'SAMPLE' in self.actions else action):
+                if not self.action_blocker.should_we_block_action(self.current_state,
+                                                                  action - 1 if 'SAMPLE' in self.actions else action):
                     self.actual_action = action
                     break
             self.did_block_action = True
@@ -349,7 +353,7 @@ class Agent:
             chosen_actions = self.algorithm.policy.actions_with_max_value(self.policy_network.get_action_values(state))
             chosen_actions = [a for a in chosen_actions if self.actions[a] != 'SAMPLE']
             if 'SAMPLE' in self.actions:
-                chosen_actions = [a-1 for a in chosen_actions]
+                chosen_actions = [a - 1 for a in chosen_actions]
             final_policy[state] = chosen_actions
 
         return final_policy
