@@ -120,7 +120,7 @@ class ObservationNeuralNetwork(NeuralNetwork):
             self.network_layers.append(
                 DenseNetworkLayer(num_outputs, activation_function, kernel_initializer, bias_initializer, use_bias))
         self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
-        self.enable_normalization = args['enable_normalization'] if 'enable_normalization' else False
+        self.enable_normalization = args['enable_normalization'] if 'enable_normalization' in args else False
         self.build_model()
 
 
@@ -163,5 +163,5 @@ class ImageFrameNeuralNetwork(NeuralNetwork):
         self.parse_dense_layer_info(num_inputs, num_outputs,
                                     args['dense_layer_info_list'] if 'dense_layer_info_list' else [], False)
         self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
-        self.enable_normalization = args['enable_normalization'] if 'enable_normalization' else False
+        self.enable_normalization = args['enable_normalization'] if 'enable_normalization' in args else False
         self.build_model()
