@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler, RobustScaler, Normalizer
+from sklearn.preprocessing import RobustScaler, Normalizer
 
 from neural_network.neural_network import NeuralNetwork
 from .common import select_method, load_from_directory
@@ -17,7 +17,7 @@ class SupervisedLearningHelper:
     enable_scaling = False
     enable_normalization = False
 
-    def __init__(self, method_type, files_dir, features, label, filters={}, enable_scaling=False, sheet_name='', enable_normalization=True):
+    def __init__(self, method_type, files_dir, features, label, filters={}, enable_scaling=False, sheet_name='', enable_normalization=True, header_index=0):
         self.method_type = method_type
         self.files_dir = files_dir
         self.features = features
@@ -27,7 +27,7 @@ class SupervisedLearningHelper:
         self.enable_normalization = enable_normalization
         cols = [feature for feature in self.features]
         cols.append(self.label)
-        self.historical_data = load_from_directory(files_dir, cols, filters, concat=True, sheet_name=sheet_name)
+        self.historical_data = load_from_directory(files_dir, cols, filters, concat=True, sheet_name=sheet_name, header_index=header_index)
         if self.historical_data is None:
             self.historical_data = pd.DataFrame(columns=cols)
         else:
@@ -57,13 +57,13 @@ class SupervisedLearningHelper:
 
     @staticmethod
     def choose_helper(method_type, files_dir, features, label, filters={}, enable_scaling=False, dl_args=None,
-                      choosing_method='best', sheet_name='', enable_normalization=True):
+                      choosing_method='best', sheet_name='', enable_normalization=True, header_index=0):
         if dl_args is None:
             return ScikitLearnHelper(choosing_method, method_type, files_dir, features, label, filters, enable_scaling,
-                                     sheet_name, enable_normalization)
+                                     sheet_name, enable_normalization, header_index)
         else:
             return DeepLearningHelper(method_type, files_dir, features, label, filters, enable_scaling, sheet_name,
-                                      dl_args, enable_normalization)
+                                      dl_args, enable_normalization, header_index)
 
 
 class ScikitLearnHelper(SupervisedLearningHelper):
@@ -72,10 +72,10 @@ class ScikitLearnHelper(SupervisedLearningHelper):
     normalizer = Normalizer()
 
     def __init__(self, choosing_method, method_type, files_dir, features, label, filters={}, enable_scaling=False,
-                 sheet_name='', enable_normalization=True):
+                 sheet_name='', enable_normalization=True, header_index=0):
         self.model = select_method(files_dir, choosing_method, features, label, filters,
-                                   method_type, enable_scaling, sheet_name, enable_normalization)
-        super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name, enable_normalization)
+                                   method_type, enable_scaling, sheet_name, enable_normalization, header_index)
+        super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name, enable_normalization, header_index)
 
     def fit(self, x, y):
         if self.enable_scaling:
@@ -95,7 +95,7 @@ class ScikitLearnHelper(SupervisedLearningHelper):
 class DeepLearningHelper(SupervisedLearningHelper):
 
     def __init__(self, method_type, files_dir, features, label, filters={}, enable_scaling=False, sheet_name='',
-                 dl_args={}, enable_normalization=True):
+                 dl_args={}, enable_normalization=True, header_index=0):
         dl_args.update({'num_inputs': len(features), 'num_outputs': 1, 'enable_scaling': enable_scaling, 'enable_normalization': enable_normalization})
         self.model = NeuralNetwork.choose_neural_network(dl_args)
-        super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name, enable_normalization)
+        super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name, enable_normalization, header_index)

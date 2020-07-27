@@ -98,7 +98,7 @@ def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_
     return train_x, train_y, test_x, test_y
 
 
-def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name=''):
+def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name='', header_index=0):
     data_files = [join(files_dir, f) for f in listdir(files_dir) if
                   isfile(join(files_dir, f))]
     df_from_each_file = []
@@ -110,7 +110,7 @@ def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name
             df = pd.read_json(f)
         elif f.endswith(".xls") or f.endswith(".xlsx"):
             if len(sheet_name) > 0:
-                df = pd.read_excel(f, sheet_name=sheet_name)
+                df = pd.read_excel(f, sheet_name=sheet_name, header=header_index)
             else:
                 df = pd.read_excel(f)
         if df is not None and len(df.index) > 0:
@@ -209,11 +209,11 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
 
 def select_best_method(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={},
                        method_type=MethodType.Classification, enable_scaling=True, sheet_name='',
-                       enable_normalization=True):
+                       enable_normalization=True, header_index=0):
     cols = features
     cols.append(label)
     cols = list(np.unique(cols))
-    df_from_each_file = load_from_directory(csv_dir, cols, filters, sheet_name=sheet_name)
+    df_from_each_file = load_from_directory(csv_dir, cols, filters, sheet_name=sheet_name, header_index=header_index)
     methods = classifiers if method_type == MethodType.Classification else regressors
     method_names = list(methods.keys())
     results, test_sizes = perform_experiment_on_data(df_from_each_file, method_type, enable_scaling,
@@ -239,14 +239,14 @@ def select_best_method(csv_dir, best_type='', metric='Accuracy', features=[], la
 
 
 def select_method(csv_dir, choosing_method='best', features=[], label='', filters={},
-                  method_type=MethodType.Classification, enable_scaling=True, sheet_name='', enable_normalization=True):
+                  method_type=MethodType.Classification, enable_scaling=True, sheet_name='', enable_normalization=True, header_index=0):
     chosen_method = None
     metric = 'Accuracy' if method_type == MethodType.Classification else 'Mean Squared Error'
     methods = classifiers if method_type == MethodType.Classification else regressors
     if choosing_method == 'best':
         chosen_method = select_best_method(csv_dir, features=features, label=label, filters=filters,
                                            method_type=method_type, enable_scaling=enable_scaling, metric=metric,
-                                           sheet_name=sheet_name, enable_normalization=enable_normalization)
+                                           sheet_name=sheet_name, enable_normalization=enable_normalization, header_index=header_index)
     elif choosing_method == 'random':
         chosen_method = randomly_select_method(methods)
     else:
