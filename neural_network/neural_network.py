@@ -29,8 +29,6 @@ class NeuralNetwork:
 
         if optimizer_type == NetworkOptimizer.ADAMAX:
             self.optimizer = tf.keras.optimizers.Adamax(learning_rate, beta_m, beta_v, epsilon)
-        elif optimizer_type == NetworkOptimizer.NADAM:
-            self.optimizer = tf.keras.optimizers.Nadam(learning_rate, beta_m, beta_v, epsilon)
         else:
             self.optimizer = tf.keras.optimizers.Adam(learning_rate, beta_m, beta_v, epsilon)
 
