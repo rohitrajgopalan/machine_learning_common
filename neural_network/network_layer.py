@@ -3,7 +3,7 @@ import tensorflow as tf
 from .network_types import NetworkInitializationType, NetworkActivationFunction
 
 
-class NetworkLayer:
+class KerasNetworkLayer:
     layer = None
 
     def __init__(self, activation_function: NetworkActivationFunction = None,
@@ -23,7 +23,7 @@ class NetworkLayer:
         pass
 
 
-class ConvNetworkLayer(NetworkLayer):
+class ConvKerasNetworkLayer(KerasNetworkLayer):
     def __init__(self, num_dimensions, num_filters, kernel_size, strides, is_transpose=False, activation_function: NetworkActivationFunction = None,
                  kernel_initializer: NetworkInitializationType = None,
                  bias_initializer: NetworkInitializationType = None, use_bias=True, input_shape=None):
@@ -161,7 +161,7 @@ class ConvNetworkLayer(NetworkLayer):
                                                         use_bias=self.use_bias, input_shape=self.input_shape)
 
 
-class DenseNetworkLayer(NetworkLayer):
+class DenseKerasNetworkLayer(KerasNetworkLayer):
     num_units = 0
 
     def __init__(self, num_units, activation_function: NetworkActivationFunction = None,
@@ -197,7 +197,7 @@ class DenseNetworkLayer(NetworkLayer):
         self.build_layer()
 
 
-class Flatten(NetworkLayer):
+class KerasFlatten(KerasNetworkLayer):
 
     def __init__(self):
         super().__init__()
