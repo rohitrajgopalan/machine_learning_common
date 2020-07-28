@@ -6,9 +6,7 @@ class NetworkInitializationType(enum.Enum):
     HE_UNIFORM = 2,
     ORTHOGONAL = 3,
     ZEROS = 4,
-    ONES = 5,
-    LECUN_UNIFORM = 6,
-    LECUN_NORMAL = 7
+    ONES = 5
 
     @staticmethod
     def all():
@@ -16,9 +14,7 @@ class NetworkInitializationType(enum.Enum):
                 NetworkInitializationType.HE_UNIFORM,
                 NetworkInitializationType.ORTHOGONAL,
                 NetworkInitializationType.ZEROS,
-                NetworkInitializationType.ONES,
-                NetworkInitializationType.LECUN_NORMAL,
-                NetworkInitializationType.LECUN_UNIFORM]
+                NetworkInitializationType.ONES]
 
     @staticmethod
     def get_type_by_name(name):
@@ -61,12 +57,11 @@ class NetworkActivationFunction(enum.Enum):
 
 class NetworkOptimizer(enum.Enum):
     ADAM = 1,
-    ADAMAX = 2,
-    NADAM = 3
+    ADAMAX = 2
 
     @staticmethod
     def all():
-        return [NetworkOptimizer.ADAM, NetworkOptimizer.ADAMAX, NetworkOptimizer.NADAM]
+        return [NetworkOptimizer.ADAM, NetworkOptimizer.ADAMAX]
 
     @staticmethod
     def get_type_by_name(name):
