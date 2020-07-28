@@ -69,3 +69,19 @@ class NetworkOptimizer(enum.Enum):
             if optimizer_type.name.lower() == name.lower():
                 return optimizer_type
         return None
+
+class LibraryType(enum.Enum):
+    TF_KERAS = 1,
+    PYTORCH = 2
+    
+    @staticmethod
+    def all():
+        return [LibraryType.TF_KERAS, LibraryType.PYTORCH]
+    
+    @staticmethod
+    def get_type_by_name(name):
+        for library_type in LibraryType.all():
+            if library_type.name.lower() == name.lower():
+                return library_type
+        return None
+    
