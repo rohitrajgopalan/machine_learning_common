@@ -50,3 +50,6 @@ class Policy:
 
     def update(self, action, reward):
         pass
+
+    def get_hyper_parameter(self):
+        return 0

@@ -4,27 +4,39 @@ import numpy as np
 
 class RLSupervisedHelper:
     state_dim = 0
+    action_dim = 0
     supervised_learning_helper = None
 
-    def __init__(self, method_type, csv_dir, state_dim, label, filters, dl_args=None):
+    def __init__(self, method_type, csv_dir, state_dim, action_dim, label, filters, dl_args=None):
         self.state_dim = state_dim
+        self.action_dim = action_dim
         features = []
         if self.state_dim == 1:
             features.append('STATE')
         else:
             for i in range(1, self.state_dim + 1):
                 features.append('STATE_VAR{0}'.format(i))
-        features.append('INITIAL_ACTION')
+        if self.action_dim == 1:
+            features.append('INITIAL_ACTION')
+        else:
+            for i in range(i, self.action_dim + 1):
+                features.append('INITIAL_ACTION_VAR{0}'.format(i))
         self.supervised_learning_helper = SupervisedLearningHelper.choose_helper(method_type, csv_dir, features, label,
                                                                                  filters, False, dl_args, 'best', '', False, )
 
     def add(self, state, action, target_value):
-        new_data = {'INITIAL_ACTION': action}
+        new_data = {}
         if self.state_dim == 1:
             new_data.update({'STATE': state})
         else:
             for i in range(self.state_dim):
                 new_data.update({'STATE_VAR{0}'.format(i+1): state[i]})
+        if self.action_dim == 1:
+            new_data.update({'INITIAL_ACTION': action})
+        else:
+            action = np.array([action])
+            for i in range(self.action_dim):
+                new_data.update({'INITIAL_ACTION_VAR{0}'.format(i+1): action[0,i]})
         self.supervised_learning_helper.add(new_data, target_value)
 
     def predict(self, state, action):
@@ -34,7 +46,12 @@ class RLSupervisedHelper:
         else:
             for i in range(self.state_dim):
                 input_x.append(state[i])
-        input_x.append(action)
+        if self.action_dim == 1:
+            input_x.append(action)
+        else:
+            action = np.array([action])
+            for i in range(self.action_dim):
+                input_x.append(action[0, i])
         inputs = np.array([input_x])
         predictions = self.supervised_learning_helper.predict(inputs)
         try:

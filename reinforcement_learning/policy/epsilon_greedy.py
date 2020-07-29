@@ -26,3 +26,6 @@ class EpsilonGreedy(Policy):
                 return self.rand_generator.choice(self.num_actions)
             else:
                 return self.argmax(action_values)
+
+    def get_hyper_parameter(self):
+        return self.epsilon

@@ -34,3 +34,6 @@ class UCB(Policy):
     def add_action(self):
         super().add_action()
         self.N = np.append(self.N, np.zeros(1) + 0.001)
+
+    def get_hyper_parameter(self):
+        return self.ucb_c

@@ -14,7 +14,6 @@ class Softmax(Policy):
             action_probs = np.exp(action_values/self.tau)
             policy = action_probs/np.sum(action_probs, axis=0)
             if np.isnan(policy.any()):
-                print('Policy values contain NaN. Returning uniform probs')
                 return np.full(self.num_actions, 1/self.num_actions)
             else:
                 return policy.flatten()
@@ -25,11 +24,12 @@ class Softmax(Policy):
             return 0
         else:
             try:
-                if np.min(policy) == np.max(policy):
+                if np.min(policy) == np.max(policy) or np.isnan(policy.any()):
                     return self.rand_generator.choice(self.num_actions)
                 else:
                     return self.rand_generator.choice(self.num_actions, p=policy)
             except ValueError:
-                print('Unable to use probs for policy')
-                print('Policy was ',policy)
                 return self.rand_generator.choice(self.num_actions)
+
+    def get_hyper_parameter(self):
+        return self.tau

@@ -27,25 +27,11 @@ class Algorithm:
         for key in args:
             setattr(self, key, args[key])
 
-    def iterator_init(self, csv_dir, state_dim, dl_args=None):
-        if not self.enable_iterator:
-            pass
-        self.iterator = TargetValuePredictor(csv_dir, state_dim, self, dl_args)
-
-    def calculate_target_value(self, a, s_, r, active, policy_network, target_network):
-        a_ = self.get_potential_action(target_network, s_,
-                                       a) if target_network is not None else self.get_potential_action(policy_network,
-                                                                                                       s_, a)
-        return r + (self.discount_factor * self.get_scalar(s_, a_, policy_network) * active)
-
-    def get_target_value(self, s, a, s_, r, active, policy_network, target_network):
-        target_value = self.calculate_target_value(a, s_, r, active, policy_network, target_network)
-        if self.enable_iterator:
-            predicted_value = self.iterator.predict(s, a)
-            self.iterator.add(s, a, target_value)
-            return predicted_value
-        else:
-            return target_value
+    def calculate_target_value(self, a, s_, r, active, net1, net2):
+        a_ = self.get_potential_action(net2, s_,
+                                       a) if net2 is not None else self.get_potential_action(net1,
+                                                                                             s_, a)
+        return r + (self.discount_factor * self.get_scalar(s_, a_, net1) * active)
 
     def get_potential_action(self, network, s, a):
         if self.algorithm_name == AlgorithmName.SARSA:

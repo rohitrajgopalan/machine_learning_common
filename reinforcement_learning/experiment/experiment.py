@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from neural_network.network_types import NetworkOptimizer
-from reinforcement_learning.agent.agent import LearningType, Agent
+from reinforcement_learning.agent.agent import LearningType, TDAgent
 from reinforcement_learning.algorithm.algorithm import Algorithm, AlgorithmName
 from reinforcement_learning.policy.choose_policy import choose_policy
 
@@ -308,7 +308,7 @@ class Experiment:
                                                                 algorithm_args['policy'] = policy
                                                                 algorithm = Algorithm(algorithm_args)
                                                                 agent_info.update({'algorithm': algorithm})
-                                                                agents.append(Agent(agent_info))
+                                                                agents.append(TDAgent(agent_info))
 
                                                             run_info['agents'] = agents
                                                             if learning_type == LearningType.REPLAY:
@@ -361,6 +361,8 @@ class Experiment:
             if learning_type == LearningType.REPLAY:
                 agent.buffer_init(run_info['num_replay'], run_info['buffer_size'], run_info['mini_batch_size'],
                                   random_seed)
+            else:
+                agent.buffer_init(1, 1, 1, random_seed)
             if enable_action_blocking:
                 agent.blocker_init(csv_dir=agent_dir, dl_args=action_blocking_dl_args)
             if enable_regression:
