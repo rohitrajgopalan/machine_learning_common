@@ -5,7 +5,7 @@ from .network_layer import *
 from .network_types import NetworkOptimizer
 
 
-class KerasNeuralNetwork:
+class NeuralNetwork:
     model = None
     network_layers = None
     optimizer = None
@@ -75,12 +75,12 @@ class KerasNeuralNetwork:
     @staticmethod
     def choose_neural_network(args={}):
         if 'conv_layer_info_list' in args:
-            return ImageFrameKerasNeuralNetwork(args)
+            return ImageFrameNeuralNetwork(args)
         else:
-            return ObservationKerasNeuralNetwork(args)
+            return ObservationNeuralNetwork(args)
 
 
-class ObservationKerasNeuralNetwork(KerasNeuralNetwork):
+class ObservationNeuralNetwork(NeuralNetwork):
     def __init__(self, args={}):
         self.network_layers = []
         num_inputs = args['num_inputs']
@@ -122,7 +122,7 @@ class ObservationKerasNeuralNetwork(KerasNeuralNetwork):
         self.build_model()
 
 
-class ImageFrameKerasNeuralNetwork(KerasNeuralNetwork):
+class ImageFrameNeuralNetwork(NeuralNetwork):
     def __init__(self, args={}):
         self.network_layers = []
         num_inputs = args['num_inputs']
