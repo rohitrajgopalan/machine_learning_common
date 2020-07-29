@@ -5,7 +5,7 @@ from .network_layer import *
 from .network_types import NetworkOptimizer
 
 
-class NeuralNetwork:
+class KerasNeuralNetwork:
     model = None
     network_layers = None
     optimizer = None
@@ -29,8 +29,6 @@ class NeuralNetwork:
 
         if optimizer_type == NetworkOptimizer.ADAMAX:
             self.optimizer = tf.keras.optimizers.Adamax(learning_rate, beta_m, beta_v, epsilon)
-        elif optimizer_type == NetworkOptimizer.NADAM:
-            self.optimizer = tf.keras.optimizers.Nadam(learning_rate, beta_m, beta_v, epsilon)
         else:
             self.optimizer = tf.keras.optimizers.Adam(learning_rate, beta_m, beta_v, epsilon)
 
@@ -71,18 +69,18 @@ class NeuralNetwork:
             use_bias = dense_layer_info['use_bias'] if 'use_bias' in dense_layer_info else True
             input_shape = (num_inputs,) if idx == 0 and set_input_shape else None
             self.network_layers.append(
-                DenseNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
-                                  input_shape))
+                DenseKerasNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
+                                       input_shape))
 
     @staticmethod
     def choose_neural_network(args={}):
         if 'conv_layer_info_list' in args:
-            return ImageFrameNeuralNetwork(args)
+            return ImageFrameKerasNeuralNetwork(args)
         else:
-            return ObservationNeuralNetwork(args)
+            return ObservationKerasNeuralNetwork(args)
 
 
-class ObservationNeuralNetwork(NeuralNetwork):
+class ObservationKerasNeuralNetwork(KerasNeuralNetwork):
     def __init__(self, args={}):
         self.network_layers = []
         num_inputs = args['num_inputs']
@@ -115,16 +113,16 @@ class ObservationNeuralNetwork(NeuralNetwork):
                     num_units = hidden_layer_size
                 input_shape = (num_inputs,) if idx == 0 else None
                 self.network_layers.append(
-                    DenseNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
-                                      input_shape))
+                    DenseKerasNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
+                                           input_shape))
             self.network_layers.append(
-                DenseNetworkLayer(num_outputs, activation_function, kernel_initializer, bias_initializer, use_bias))
+                DenseKerasNetworkLayer(num_outputs, activation_function, kernel_initializer, bias_initializer, use_bias))
         self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
         self.enable_normalization = args['enable_normalization'] if 'enable_normalization' in args else False
         self.build_model()
 
 
-class ImageFrameNeuralNetwork(NeuralNetwork):
+class ImageFrameKerasNeuralNetwork(KerasNeuralNetwork):
     def __init__(self, args={}):
         self.network_layers = []
         num_inputs = args['num_inputs']
@@ -157,9 +155,9 @@ class ImageFrameNeuralNetwork(NeuralNetwork):
                 bias_initializer = NetworkInitializationType.get_type_by_name(bias_initializer)
             use_bias = conv_layer_info['use_bias'] if 'use_bias' in args else True
             self.network_layers.append(
-                ConvNetworkLayer(num_dimensions, num_filters, kernel_size, strides, is_transpose, activation_function,
-                                 kernel_initializer, bias_initializer, use_bias, input_shape))
-        self.network_layers.append(Flatten())
+                ConvKerasNetworkLayer(num_dimensions, num_filters, kernel_size, strides, is_transpose, activation_function,
+                                      kernel_initializer, bias_initializer, use_bias, input_shape))
+        self.network_layers.append(KerasFlatten())
         self.parse_dense_layer_info(num_inputs, num_outputs,
                                     args['dense_layer_info_list'] if 'dense_layer_info_list' else [], False)
         self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
