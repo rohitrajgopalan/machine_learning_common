@@ -300,6 +300,7 @@ class Experiment:
                                                                                    'is_double_agent': is_double_agent,
                                                                                    'learning_type': learning_type,
                                                                                    'state_dim': environment.required_state_dim,
+                                                                                   'action_dim': environment.required_action_dim,
                                                                                    'enable_action_blocking': enable_action_blocking})
                                                                 policy_args.update(
                                                                     {'num_actions': len(agent_info['actions'])})
