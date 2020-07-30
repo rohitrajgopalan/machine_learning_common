@@ -345,8 +345,11 @@ class TDAgent:
                 predicted_value = self.iterator.predict(s, action)
                 self.iterator.add(s, action, target_value)
                 target_value = predicted_value
-            q_target[batch_idx, a] = target_value
-            states[batch_idx] = s
+            try:
+                q_target[batch_idx, a] = target_value
+                states[batch_idx] = s
+            except ValueError:
+                print('Unable to set Target Value {0} for Batch Index {1}, State {2} Action Index {3}'.format(target_value, batch_idx, s, a))
         self.policy_network.update_network(states, q_target)
 
     def get_total_reward(self):
