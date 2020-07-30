@@ -17,7 +17,7 @@ class ReplayBuffer:
         self.rand_generator = np.random.RandomState(seed)
         self.max_size = size
 
-    def append(self, state, action, reward, terminal, next_state):
+    def append(self, state, action, next_state, reward, terminal):
         """
         Args:
             state (Numpy array): The state.
@@ -28,7 +28,7 @@ class ReplayBuffer:
         """
         if len(self.buffer) == self.max_size:
             del self.buffer[0]
-        self.buffer.append([state, action, reward, terminal, next_state])
+        self.buffer.append([state, action, next_state, reward, terminal])
 
     def sample(self):
         """

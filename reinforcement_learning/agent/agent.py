@@ -229,7 +229,6 @@ class TDAgent:
         self.iterator = TargetValuePredictor(csv_dir, self.state_dim, self.action_dim, self.algorithm, dl_args)
 
     def step(self, r1, r2):
-        self.n_update_steps += 1
         if self.did_block_action:
             r = r2 * -1
         else:
@@ -244,8 +243,9 @@ class TDAgent:
         if self.is_double_agent:
             self.target_network.set_weights(self.policy_network.get_weights())
 
-        self.replay_buffer.append(self.current_state, self.initial_action, r, 1 - int(self.active), self.next_state)
+        self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
         if self.replay_buffer.size() >= self.replay_buffer.minibatch_size:
+            self.n_update_steps += 1
             for _ in range(self.num_replay):
                 experiences = self.replay_buffer.sample()
                 self.optimize_action_network(experiences)
