@@ -2,8 +2,6 @@ import enum
 
 import numpy as np
 
-from reinforcement_learning.supervised.target_value_predictor import TargetValuePredictor
-
 
 class AlgorithmName(enum.Enum):
     SARSA = 1,

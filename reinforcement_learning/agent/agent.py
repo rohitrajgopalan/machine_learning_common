@@ -1,38 +1,16 @@
-import enum
 from os import listdir
 from os.path import join, isfile
-
 import numpy as np
 import pandas as pd
 
 from reinforcement_learning.environment.environment import ActionType
-from reinforcement_learning.network.actionvaluenetwork import ActionValueNetwork
-from reinforcement_learning.policy.epsilon_greedy import EpsilonGreedy
-from reinforcement_learning.policy.softmax import Softmax
-from reinforcement_learning.policy.ucb import UCB
 from reinforcement_learning.replay.replay_buffer import ReplayBuffer
 from reinforcement_learning.supervised.negative_action_blocker import NegativeActionBlocker
-from reinforcement_learning.supervised.target_value_predictor import TargetValuePredictor
 
 
-class LearningType(enum.Enum):
-    ONLINE = 1,
-    REPLAY = 2
-
-    @staticmethod
-    def all():
-        return [LearningType.ONLINE, LearningType.REPLAY]
-
-
-class TDAgent:
-    learning_type = None
-    is_double_agent = False
-
+class Agent:
     algorithm = None
-
-    policy_network = None
-    target_network = None
-
+    discount_factor = 0.0
     active = True
     actions = []
     action_dim = 0
@@ -51,14 +29,12 @@ class TDAgent:
     historical_data_columns = []
 
     enable_action_blocking = False
-    enable_iterator = False
-    iterator = None
     action_blocker = None
 
     num_replay = 0
     replay_buffer = None
 
-    def __init__(self, args=None):
+    def __init__(self, args={}):
         # In an multi-agent setting, data from other agents might come and populate here which will
         # break the code and give unexpected results.
         # So a pre-clean-up is necessary
@@ -109,10 +85,7 @@ class TDAgent:
             for i in range(1, self.action_dim + 1):
                 self.historical_data_columns.append('INITIAL_ACTION_VAR{0}'.format(i))
         self.historical_data_columns.append('REWARD')
-        self.historical_data_columns.append('ALGORITHM')
         self.historical_data_columns.append('GAMMA')
-        self.historical_data_columns.append('POLICY')
-        self.historical_data_columns.append('HYPERPARAMETER')
         self.historical_data_columns.append('TARGET_VALUE')
         self.historical_data_columns.append('BLOCKED?')
 
@@ -123,12 +96,10 @@ class TDAgent:
         elif len(actions_dir) > 0:
             self.load_actions_from_dir(actions_dir)
 
-        self.reset()
-
     def blocker_init(self, csv_dir, dl_args=None):
         if not self.enable_action_blocking:
             pass
-        self.action_blocker = NegativeActionBlocker(csv_dir, self.state_dim, dl_args)
+        self.action_blocker = NegativeActionBlocker(csv_dir, self.state_dim, self.action_dim, dl_args)
 
     def buffer_init(self, num_replay, size, minibatch_size, random_seed):
         self.replay_buffer = ReplayBuffer(size, minibatch_size, random_seed)
@@ -138,11 +109,9 @@ class TDAgent:
         if s is None:
             pass
         if not type(s) == int:
-            if type(s) == np.ndarray:
-                s = tuple(s.reshape(1, -1)[0])
-            elif type(s) == list:
+            if type(s) == list:
                 s = tuple(s)
-        if s not in self.experienced_states:
+        if len(self.experienced_states) or s not in self.experienced_states:
             self.experienced_states.append(s)
 
     def reset(self):
@@ -214,82 +183,34 @@ class TDAgent:
 
     def add_action(self, action):
         a_index, does_exist = self.does_action_already_exist(action)
-        if not does_exist:
+        if does_exist:
+            return a_index
+        else:
             self.actions.append(action)
+            return len(self.actions)-1
 
-    def network_init(self, action_network_args):
-        action_network_args.update({'num_inputs': self.state_dim, 'num_outputs': len(self.actions)})
-        self.policy_network = ActionValueNetwork(action_network_args)
-        if self.is_double_agent:
-            self.target_network = ActionValueNetwork(action_network_args)
-
-    def iterator_init(self, csv_dir, dl_args=None):
-        if not self.enable_iterator:
-            pass
-        self.iterator = TargetValuePredictor(csv_dir, self.state_dim, self.action_dim, self.algorithm, dl_args)
-
-    def step(self, r1, r2):
-        if self.did_block_action:
-            r = r2 * -1
+    def get_action(self, action_type):
+        if action_type == ActionType.Initial:
+            return self.initial_action
+        elif action_type == ActionType.Actual:
+            return self.actual_action
         else:
-            r = r1
-        self.algorithm.policy.update(self.initial_action, r)
+            return None
 
-        self.add_to_supervised_learning(r1)
-
-        self.add_state(self.current_state)
-        self.add_state(self.next_state)
-
-        if self.is_double_agent:
-            self.target_network.set_weights(self.policy_network.get_weights())
-
-        self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
-        if self.replay_buffer.size() >= self.replay_buffer.minibatch_size:
-            self.n_update_steps += 1
-            for _ in range(self.num_replay):
-                experiences = self.replay_buffer.sample()
-                self.optimize_action_network(experiences)
-
-        if self.active:
-            self.current_state = self.next_state
-
-    def add_to_supervised_learning(self, r):
-        blocked_boolean = 1 if r <= (self.algorithm.policy.min_penalty * -1) else 0
-        if self.enable_action_blocking:
-            self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
-        new_data = {}
-        if self.state_dim == 1:
-            new_data.update({'STATE': self.current_state})
+    def set_action(self, action_type, action):
+        if action_type == ActionType.Initial:
+            self.initial_action = action
+        elif action_type == ActionType.Actual:
+            self.actual_action = action
         else:
-            for i in range(self.state_dim):
-                state_val = self.current_state[i]
-                if type(state_val) == bool:
-                    state_val = int(state_val)
-                new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
-        if self.action_dim == 1:
-            action = self.actions[self.initial_action]
-            new_data.update({'INITIAL_ACTION': self.initial_action if type(action) == str else action})
-        else:
-            action = self.actions[self.initial_action]
-            action = np.array([action])
-            for i in range(self.action_dim):
-                new_data.update({'INITIAL_ACTION_VAR{0}'.format(i+1): action[0, i]})
+            self.initial_action = action
+            self.actual_action = action
 
-        new_data.update({'REWARD': r,
-                         'ALGORITHM': '{0}{1}'.format(self.algorithm.algorithm_name.name,
-                                                      '_LAMBDA' if 'Lambda' in self.algorithm.__class__.__name__ else ''),
-                         'GAMMA': self.algorithm.discount_factor,
-                         'POLICY': self.algorithm.policy.__class__.__name__,
-                         'TARGET_VALUE': self.algorithm.calculate_target_value(self.initial_action,
-                                                                               self.next_state, r,
-                                                                               int(self.active), self.policy_network,
-                                                                               self.target_network),
-                         'HYPERPARAMETER': self.algorithm.policy.get_hyper_parameter(),
-                         'BLOCKED?': blocked_boolean})
-        self.historical_data = self.historical_data.append(new_data, ignore_index=True)
+    def assign_initial_action(self):
+        pass
 
     def choose_next_action(self):
-        self.initial_action = self.algorithm.policy.choose_action(self.current_state, self.policy_network)
+        self.assign_initial_action()
         if self.initial_action is not None:
             action_val = self.actions[self.initial_action]
             if type(action_val) == str:
@@ -314,57 +235,34 @@ class TDAgent:
             self.actual_action = self.initial_action
             self.did_block_action = False
 
-    def get_action(self, action_type):
-        if action_type == ActionType.Initial:
-            return self.initial_action
-        elif action_type == ActionType.Actual:
-            return self.actual_action
+    def step(self, r1, r2, should_action_be_blocked=False):
+        if self.did_block_action:
+            r = r2 * -1
         else:
-            return None
+            r = r1
+        if self.algorithm is not None:
+            self.algorithm.policy.update(self.initial_action, should_action_be_blocked)
 
-    def set_action(self, action_type, action):
-        if action_type == ActionType.Initial:
-            self.initial_action = action
-        elif action_type == ActionType.Actual:
-            self.actual_action = action
-        else:
-            self.initial_action = action
-            self.actual_action = action
+        self.add_to_supervised_learning(r1, should_action_be_blocked)
 
-    def optimize_action_network(self, experiences):
-        q_target = np.zeros((len(experiences), len(self.actions)))
-        states = np.zeros((len(experiences), self.state_dim))
-        for batch_idx, experience in enumerate(experiences):
-            s, a, s_, r, terminal = experience
-            target_value = self.algorithm.calculate_target_value(a, s_, r, 1 - terminal, self.policy_network,
-                                                                 self.target_network)
-            action = self.actions[a]
-            if type(action) == str:
-                action = a
-            if self.enable_iterator:
-                predicted_value = self.iterator.predict(s, action)
-                self.iterator.add(s, action, target_value)
-                target_value = predicted_value
-            try:
-                q_target[batch_idx, a] = target_value
-                states[batch_idx] = s
-            except ValueError:
-                print('Unable to set Target Value {0} for Batch Index {1}, State {2} Action Index {3}'.format(target_value, batch_idx, s, a))
-        self.policy_network.update_network(states, q_target)
+        self.add_state(self.current_state)
+        self.add_state(self.next_state)
 
-    def get_total_reward(self):
-        total_reward = 0
+        self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
+        if self.replay_buffer.size() >= self.replay_buffer.minibatch_size:
+            self.n_update_steps += 1
+            for _ in range(self.num_replay):
+                experiences = self.replay_buffer.sample()
+                self.optimize_network(experiences)
 
-        for state in self.experienced_states:
-            total_reward += np.sum(self.policy_network.get_action_values(state))
+        if self.active:
+            self.current_state = self.next_state
 
-        return total_reward
+    def add_to_supervised_learning(self, r, should_action_be_blocked):
+        pass
 
-    def determine_final_policy(self):
-        final_policy = {}
+    def optimize_network(self, experiences):
+        pass
 
-        for state in self.experienced_states:
-            chosen_actions = self.algorithm.policy.actions_with_max_value(self.policy_network.get_action_values(state))
-            final_policy[state] = chosen_actions
-
-        return final_policy
+    def get_results(self):
+        return 0, {}

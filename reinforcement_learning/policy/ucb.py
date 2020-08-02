@@ -27,13 +27,9 @@ class UCB(Policy):
     def choose_action_based_from_values(self, action_values):
         return self.argmax(action_values + self.generate_confidence()) if self.num_actions > 1 else 0
 
-    def update(self, action, reward):
+    def update(self, action, should_action_be_blocked=False):
         self.N[action] += 1
         self.time_step_counter += 1
-
-    def add_action(self):
-        super().add_action()
-        self.N = np.append(self.N, np.zeros(1) + 0.001)
 
     def get_hyper_parameter(self):
         return self.ucb_c

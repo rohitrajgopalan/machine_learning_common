@@ -19,7 +19,7 @@ class Environment:
     max_time_steps = 0
     current_time_step = 0
 
-    min_penalty = -1
+    min_penalty = 1
 
     # agent_id: (next_state_1, rewards_1, next_state_2, rewards_2) or
     agents_step_info = {}
@@ -98,7 +98,7 @@ class Environment:
                 self.generate_rewards()
                 _, r1 = self.agents_step_info[agent.agent_id][agent.initial_action]
                 _, r2 = self.agents_step_info[agent.agent_id][agent.actual_action]
-                agent.step(r1, r2)
+                agent.step(r1, r2, r1 <= -self.min_penalty)
                 if self.is_complete():
                     return True
 
@@ -107,7 +107,7 @@ class Environment:
             for agent in active_agents:
                 _, r1 = self.agents_step_info[agent.agent_id][agent.initial_action]
                 _, r2 = self.agents_step_info[agent.agent_id][agent.actual_action]
-                agent.step(r1, r2)
+                agent.step(r1, r2, r1 <= -self.min_penalty)
             return self.is_complete()
         else:
             return False

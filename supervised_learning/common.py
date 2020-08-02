@@ -16,6 +16,7 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import RobustScaler, Normalizer
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.neural_network import MLPRegressor, MLPClassifier
 
 warnings.filterwarnings('ignore')
 classifiers = {'Logistic Regression': LogisticRegression(),
@@ -25,7 +26,8 @@ classifiers = {'Logistic Regression': LogisticRegression(),
                'Quadratic Discriminant Analysis': QuadraticDiscriminantAnalysis(),
                'Random Forest': RandomForestClassifier(),
                'K-Nearest Neighbors': KNeighborsClassifier(),
-               'Bayes': GaussianNB()}
+               'Bayes': GaussianNB(),
+               'Neural Network': MLPClassifier()}
 regressors = {'Linear Regression': LinearRegression(),
               'Decision Tree': DecisionTreeRegressor(),
               'Support Vector Machine': SVR(gamma='auto', kernel='rbf'),
@@ -33,7 +35,8 @@ regressors = {'Linear Regression': LinearRegression(),
               'K-Nearest Neighbour': KNeighborsRegressor(),
               'Lasso': Lasso(),
               'Ridge': Ridge(),
-              'Elastic Net': ElasticNet()}
+              'Elastic Net': ElasticNet(),
+              'Neural Network': MLPRegressor()}
 scoring_classifiers = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
 scoring_regressors = ['explained_variance', 'max_error', 'neg_mean_absolute_error', 'neg_mean_squared_error',
                       'neg_root_mean_squared_error', 'neg_median_absolute_error', 'r2']
@@ -243,6 +246,9 @@ def select_method(csv_dir, choosing_method='best', features=[], label='', filter
     chosen_method = None
     metric = 'Accuracy' if method_type == MethodType.Classification else 'Mean Squared Error'
     methods = classifiers if method_type == MethodType.Classification else regressors
+    cols = [feature for feature in features]
+    cols.append(label)
+    training_data = load_from_directory(csv_dir, cols, filters, True, sheet_name, header_index)
     if choosing_method == 'best':
         chosen_method = select_best_method(csv_dir, features=features, label=label, filters=filters,
                                            method_type=method_type, enable_scaling=enable_scaling, metric=metric,
@@ -254,6 +260,10 @@ def select_method(csv_dir, choosing_method='best', features=[], label='', filter
             if method_name.lower() == choosing_method.lower():
                 chosen_method = methods[method_name]
                 break
+    if type(chosen_method) == MLPRegressor:
+        chosen_method = MLPRegressor(batch_size=len(training_data.index))
+    elif type(chosen_method) == MLPClassifier:
+        chosen_method = MLPClassifier(batch_size=len(training_data.index))
     return chosen_method
 
 

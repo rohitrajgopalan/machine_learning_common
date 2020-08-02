@@ -6,7 +6,6 @@ from .policy import Policy
 class ThompsonSampling(Policy):
     alpha = None
     beta = None
-    min_penalty = -1
 
     def __init__(self, args=None):
         super().__init__(args)
@@ -28,10 +27,8 @@ class ThompsonSampling(Policy):
     def choose_action_based_from_values(self, action_values):
         return self.argmax(self.generate_theta()) if self.num_actions > 1 else 0
 
-    def update(self, action, reward):
-        r = 0
-        if reward > self.min_penalty * -1:
-            r = 1
+    def update(self, action, should_action_be_blocked=False):
+        r = 0 if should_action_be_blocked else 1
         self.alpha[action] += r
         self.beta[action] += 1 - r
 

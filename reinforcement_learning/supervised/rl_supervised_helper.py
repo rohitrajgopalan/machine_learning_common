@@ -32,11 +32,15 @@ class RLSupervisedHelper:
             for i in range(self.state_dim):
                 new_data.update({'STATE_VAR{0}'.format(i+1): state[i]})
         if self.action_dim == 1:
-            new_data.update({'INITIAL_ACTION': action})
+            if type(action) == int or type(action) == float:
+                new_data.update({'INITIAL_ACTION': action})
+            else:
+                action = np.array([action])
+                new_data.update({'INITIAL_ACTION': action[0, 0]})
         else:
             action = np.array([action])
             for i in range(self.action_dim):
-                new_data.update({'INITIAL_ACTION_VAR{0}'.format(i+1): action[0,i]})
+                new_data.update({'INITIAL_ACTION_VAR{0}'.format(i+1): action[0, i]})
         self.supervised_learning_helper.add(new_data, target_value)
 
     def predict(self, state, action):
@@ -46,7 +50,7 @@ class RLSupervisedHelper:
         else:
             for i in range(self.state_dim):
                 input_x.append(state[i])
-        if self.action_dim == 1:
+        if type(action) == int or type(action) == float:
             input_x.append(action)
         else:
             action = np.array([action])
