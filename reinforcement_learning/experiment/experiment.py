@@ -210,9 +210,9 @@ class Experiment:
                         if type(state_val) == bool:
                             state_val = int(state_val)
                         new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
-                        for action in final_policy[state]:
-                            new_data.update({'ACTION': action})
-                        agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
+                for action in final_policy[state]:
+                    new_data.update({'ACTION': action})
+                    agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
             agent_final_policy.to_csv(agent_final_policy_file, index=False)
             self.agents_data = self.agents_data.append(
                 {'AGENT_ID': agent.agent_id, 'TOTAL_REWARD': total_reward,
