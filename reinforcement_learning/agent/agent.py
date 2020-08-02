@@ -84,9 +84,6 @@ class Agent:
         else:
             for i in range(1, self.action_dim + 1):
                 self.historical_data_columns.append('INITIAL_ACTION_VAR{0}'.format(i))
-        self.historical_data_columns.append('REWARD')
-        self.historical_data_columns.append('GAMMA')
-        self.historical_data_columns.append('TARGET_VALUE')
         self.historical_data_columns.append('BLOCKED?')
 
         if len(actions_csv_file) > 0:
@@ -95,6 +92,8 @@ class Agent:
             self.load_actions_from_npy(actions_npy_file)
         elif len(actions_dir) > 0:
             self.load_actions_from_dir(actions_dir)
+
+        self.reset()
 
     def blocker_init(self, csv_dir, dl_args=None):
         if not self.enable_action_blocking:
@@ -259,7 +258,29 @@ class Agent:
             self.current_state = self.next_state
 
     def add_to_supervised_learning(self, r, should_action_be_blocked):
-        pass
+        blocked_boolean = 1 if should_action_be_blocked else 0
+        if self.enable_action_blocking:
+            self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
+        new_data = {}
+        if self.state_dim == 1:
+            new_data.update({'STATE': self.current_state})
+        else:
+            for i in range(self.state_dim):
+                state_val = self.current_state[i]
+                if type(state_val) == bool:
+                    state_val = int(state_val)
+                new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
+        if self.action_dim == 1:
+            action = self.actions[self.initial_action]
+            new_data.update({'INITIAL_ACTION': self.initial_action if type(action) == str else action})
+        else:
+            action = self.actions[self.initial_action]
+            action = np.array([action])
+            for i in range(self.action_dim):
+                new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
+
+        new_data.update({'BLOCKED?': blocked_boolean})
+        self.historical_data = self.historical_data.append(new_data, ignore_index=True)
 
     def optimize_network(self, experiences):
         pass

@@ -11,10 +11,6 @@ class TDAgent(Agent):
 
     def __init__(self, args={}):
         super().__init__(args)
-        self.historical_data_columns.append('ALGORITHM')
-        self.historical_data_columns.append('POLICY')
-        self.historical_data_columns.append('HYPERPARAMETER')
-        self.reset()
 
     def network_init(self, action_network_args):
         action_network_args.update({'num_inputs': self.state_dim, 'num_outputs': len(self.actions)})
@@ -26,41 +22,6 @@ class TDAgent(Agent):
         if self.is_double_agent:
             self.target_network.set_weights(self.policy_network.get_weights())
         super().step(r1, r2, should_action_be_blocked)
-
-    def add_to_supervised_learning(self, r, should_action_be_blocked):
-        blocked_boolean = 1 if should_action_be_blocked else 0
-        if self.enable_action_blocking:
-            self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
-        new_data = {}
-        if self.state_dim == 1:
-            new_data.update({'STATE': self.current_state})
-        else:
-            for i in range(self.state_dim):
-                state_val = self.current_state[i]
-                if type(state_val) == bool:
-                    state_val = int(state_val)
-                new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
-        if self.action_dim == 1:
-            action = self.actions[self.initial_action]
-            new_data.update({'INITIAL_ACTION': self.initial_action if type(action) == str else action})
-        else:
-            action = self.actions[self.initial_action]
-            action = np.array([action])
-            for i in range(self.action_dim):
-                new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
-
-        new_data.update({'REWARD': r,
-                         'ALGORITHM': '{0}{1}'.format(self.algorithm.algorithm_name.name,
-                                                      '_LAMBDA' if 'Lambda' in self.algorithm.__class__.__name__ else ''),
-                         'GAMMA': self.algorithm.discount_factor,
-                         'POLICY': self.algorithm.policy.__class__.__name__,
-                         'TARGET_VALUE': self.algorithm.calculate_target_value(self.initial_action,
-                                                                               self.next_state, r,
-                                                                               int(self.active), self.policy_network,
-                                                                               self.target_network),
-                         'HYPERPARAMETER': self.algorithm.policy.get_hyper_parameter(),
-                         'BLOCKED?': blocked_boolean})
-        self.historical_data = self.historical_data.append(new_data, ignore_index=True)
 
     def assign_initial_action(self):
         self.initial_action = self.algorithm.policy.choose_action(self.current_state, self.policy_network)

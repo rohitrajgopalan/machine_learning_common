@@ -13,10 +13,6 @@ class ACAgent(Agent):
     enable_noise = False
     sess = tf.compat.v1.InteractiveSession()
 
-    def __init__(self, args={}):
-        super().__init__(args)
-        self.reset()
-
     def exploration_noise_init(self, exploration_noise_args):
         if not self.enable_noise:
             pass
@@ -42,34 +38,6 @@ class ACAgent(Agent):
         super().step(r1, r2, should_action_be_blocked)
         if not self.active:
             self.exploration_noise.reset()
-
-    def add_to_supervised_learning(self, r, should_action_be_blocked):
-        blocked_boolean = 1 if should_action_be_blocked else 0
-        if self.enable_action_blocking:
-            self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
-        new_data = {}
-        if self.state_dim == 1:
-            new_data.update({'STATE': self.current_state})
-        else:
-            for i in range(self.state_dim):
-                state_val = self.current_state[i]
-                if type(state_val) == bool:
-                    state_val = int(state_val)
-                new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
-        action = self.actions[self.initial_action]
-        action = np.array([action])
-        if self.action_dim == 1:
-            new_data.update({'INITIAL_ACTION': self.initial_action if type(action) == str else action[0, 0]})
-        else:
-            for i in range(self.action_dim):
-                new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
-
-        new_data.update({'REWARD': r,
-                         'GAMMA': self.discount_factor,
-                         'TARGET_VALUE': self.calculate_target_value(self.next_state, r,
-                                                                     int(self.active)),
-                         'BLOCKED?': blocked_boolean})
-        self.historical_data = self.historical_data.append(new_data, ignore_index=True)
 
     def optimize_network(self, experiences):
         states = []
