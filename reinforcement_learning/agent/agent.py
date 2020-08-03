@@ -1,10 +1,7 @@
 from os import listdir
 from os.path import join, isfile
 import numpy as np
-try:
-    import modin.pandas as pd
-except ImportError:
-    import pandas as pd
+import pandas as pd
 
 from reinforcement_learning.environment.environment import ActionType
 from reinforcement_learning.replay.replay_buffer import ReplayBuffer
