@@ -78,6 +78,8 @@ class Agent:
         self.current_state = self.initial_state
         self.add_state(self.current_state)
 
+        self.experienced_samples_columns.append('SAMPLE_NO')
+        self.action_blocking_data_columns.append('INDEX')
         if self.state_dim == 1:
             self.action_blocking_data_columns.append('STATE')
             self.experienced_samples_columns.append('STATE')
@@ -274,7 +276,7 @@ class Agent:
 
     def add_to_experienced_samples(self, r):
         self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
-        new_data = {}
+        new_data = {'SAMPLE_NO': len(self.experienced_samples.index)}
         if self.state_dim == 1:
             new_data.update({'STATE': self.current_state, 'NEXT_STATE': self.next_state})
         else:
@@ -304,7 +306,7 @@ class Agent:
         blocked_boolean = 1 if should_action_be_blocked else 0
         if self.enable_action_blocking:
             self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
-        new_data = {}
+        new_data = {'INDEX': len(self.action_blocking_data.index)}
         if self.state_dim == 1:
             new_data.update({'STATE': self.current_state})
         else:

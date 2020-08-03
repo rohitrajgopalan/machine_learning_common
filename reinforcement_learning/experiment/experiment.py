@@ -325,11 +325,9 @@ class Experiment:
 
                                                         run_info['agents'] = agents
                                                         if learning_type == LearningType.REPLAY:
-                                                            for num_replay in replay_buffer_hyper_parameters[
-                                                                'num_replay']:
+                                                            for num_replay in replay_buffer_hyper_parameters['num_replay']:
                                                                 run_info['num_replay'] = num_replay
-                                                                for buffer_size in replay_buffer_hyper_parameters[
-                                                                    'buffer_size']:
+                                                                for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
                                                                     run_info['buffer_size'] = buffer_size
                                                                     for mini_batch_size in \
                                                                             replay_buffer_hyper_parameters[
@@ -435,8 +433,7 @@ class Experiment:
                                                     run_info['num_replay'] = num_replay
                                                     for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
                                                         run_info['buffer_size'] = buffer_size
-                                                        for mini_batch_size in replay_buffer_hyper_parameters[
-                                                            'mini_batch_size']:
+                                                        for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
                                                             run_info[
                                                                 'mini_batch_size'] = mini_batch_size
                                                             agents, run_times, time_steps = self.perform_run(
@@ -509,14 +506,14 @@ class Experiment:
                 agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
                 agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
                 file_name = join(agent_ml_data_dir,
-                                 'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
+                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
                 if isfile(file_name):
                     file_name = join(file_name, 'duplicate')
                 agent.action_blocking_data.to_csv(
                     file_name,
                     index=False)
                 file_name = join(agent_samples_dir,
-                                 'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
+                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
                 if isfile(file_name):
                     file_name = join(file_name, 'duplicate')
                 agent.experienced_samples.to_csv(file_name,
