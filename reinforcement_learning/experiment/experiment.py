@@ -5,6 +5,7 @@ from os import mkdir
 from os.path import join, isdir
 
 import numpy as np
+
 try:
     import modin.pandas as pd
 except ImportError:
@@ -332,13 +333,15 @@ class Experiment:
                                                                 run_info['num_replay'] = num_replay
                                                                 for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
                                                                     run_info['buffer_size'] = buffer_size
-                                                                    for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
+                                                                    for mini_batch_size in \
+                                                                            replay_buffer_hyper_parameters[
+                                                                                'mini_batch_size']:
                                                                         run_info['mini_batch_size'] = mini_batch_size
                                                                         agents, run_times, time_steps = self.perform_run(
                                                                             run_info)
                                                                         self.process_run(run_info, agents,
                                                                                          run_times, time_steps)
-                                                        else:
+                                                        elif learning_type == LearningType.ONLINE:
                                                             agents, run_times, time_steps = self.perform_run(
                                                                 run_info)
                                                             self.process_run(run_info, agents, run_times,
@@ -440,7 +443,7 @@ class Experiment:
                                                             agents, run_times, time_steps = self.perform_run(
                                                                 run_info)
                                                             self.process_run(run_info, agents, run_times, time_steps)
-                                            else:
+                                            elif learning_type == LearningType.ONLINE:
                                                 agents, run_times, time_steps = self.perform_run(
                                                     run_info)
                                                 self.process_run(run_info, agents, run_times, time_steps)
@@ -455,20 +458,27 @@ class Experiment:
         if not isdir(ml_data_dir):
             mkdir(ml_data_dir)
 
+        samples_dir = join(self.output_dir, 'samples')
+        if not isdir(samples_dir):
+            mkdir(samples_dir)
+
         enable_action_blocking = run_info['enable_action_blocking'] if 'enable_action_blocking' in run_info else False
         action_blocking_dl_args = run_info['action_blocking_dl_args'] if 'action_blocking_dl_args' in run_info else None
 
         for agent in agents:
-            agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
-            if not isdir(agent_dir):
-                mkdir(agent_dir)
+            agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
+            agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
+            if not isdir(agent_ml_data_dir):
+                mkdir(agent_ml_data_dir)
+            if not isdir(agent_samples_dir):
+                mkdir(agent_samples_dir)
             if learning_type == LearningType.REPLAY:
                 agent.buffer_init(run_info['num_replay'], run_info['buffer_size'], run_info['mini_batch_size'],
                                   random_seed)
-            else:
+            elif learning_type == LearningType.ONLINE:
                 agent.buffer_init(1, 1, 1, random_seed)
             if enable_action_blocking:
-                agent.blocker_init(csv_dir=agent_dir, dl_args=action_blocking_dl_args)
+                agent.blocker_init(csv_dir=agent_ml_data_dir, dl_args=action_blocking_dl_args)
             if type(agent) == TDAgent:
                 action_network_args = run_info['action_network_args']
                 agent.network_init(action_network_args=action_network_args)
@@ -497,10 +507,14 @@ class Experiment:
             run_times[episode] = diff.seconds
 
             for agent in environment.agents:
-                agent_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
+                agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
                 agent.historical_data.to_csv(
-                    join(agent_dir,
+                    join(agent_ml_data_dir,
                          'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1)),
                     index=False)
+                agent.experienced_samples.to_csv(join(agent_samples_dir,
+                                                      'log{0}_episode{1}.csv'.format(
+                                                          datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1)),
+                                                 index=False)
 
         return environment.agents, run_times, time_steps

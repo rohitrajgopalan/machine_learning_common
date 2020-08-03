@@ -28,8 +28,11 @@ class Agent:
 
     experienced_states = []
 
-    historical_data = None
-    historical_data_columns = []
+    action_blocking_data = None
+    action_blocking_data_columns = []
+
+    experienced_samples = None
+    experienced_samples_columns = []
 
     enable_action_blocking = False
     action_blocker = None
@@ -43,8 +46,8 @@ class Agent:
         # So a pre-clean-up is necessary
         if len(self.experienced_states) > 0:
             self.experienced_states = []
-        if len(self.historical_data_columns) > 0:
-            self.historical_data_columns = []
+        if len(self.action_blocking_data_columns) > 0:
+            self.action_blocking_data_columns = []
 
         self.did_block_action = False
         actions_csv_file = ''
@@ -78,16 +81,24 @@ class Agent:
         self.add_state(self.current_state)
 
         if self.state_dim == 1:
-            self.historical_data_columns.append('STATE')
+            self.action_blocking_data_columns.append('STATE')
+            self.experienced_samples_columns.append('STATE')
+            self.experienced_samples_columns.append('NEXT_STATE')
         else:
             for i in range(1, self.state_dim + 1):
-                self.historical_data_columns.append('STATE_VAR{0}'.format(i))
+                self.action_blocking_data_columns.append('STATE_VAR{0}'.format(i))
+                self.experienced_samples_columns.append('STATE_VAR{0}'.format(i))
+                self.experienced_samples_columns.append('NEXT_STATE_VAR{0}'.format(i))
         if self.action_dim == 1:
-            self.historical_data_columns.append('INITIAL_ACTION')
+            self.action_blocking_data_columns.append('INITIAL_ACTION')
+            self.experienced_samples_columns.append('INITIAL_ACTION')
         else:
             for i in range(1, self.action_dim + 1):
-                self.historical_data_columns.append('INITIAL_ACTION_VAR{0}'.format(i))
-        self.historical_data_columns.append('BLOCKED?')
+                self.action_blocking_data_columns.append('INITIAL_ACTION_VAR{0}'.format(i))
+                self.action_blocking_data_columns.append('INITIAL_ACTION_VAR{0}'.format(i))
+        self.experienced_samples_columns.append('REWARD')
+        self.experienced_samples_columns.append('DONE?')
+        self.action_blocking_data_columns.append('BLOCKED?')
 
         if len(actions_csv_file) > 0:
             self.load_actions_from_csv(actions_csv_file)
@@ -118,7 +129,8 @@ class Agent:
 
     def reset(self):
         self.current_state = self.initial_state
-        self.historical_data = pd.DataFrame(columns=self.historical_data_columns)
+        self.action_blocking_data = pd.DataFrame(columns=self.action_blocking_data_columns)
+        self.experienced_samples_columns = pd.DataFrame(columns=self.experienced_samples_columns)
         self.active = True
 
     def load_actions_from_csv(self, csv_file):
@@ -245,12 +257,12 @@ class Agent:
         if self.algorithm is not None:
             self.algorithm.policy.update(self.initial_action, should_action_be_blocked)
 
-        self.add_to_supervised_learning(r1, should_action_be_blocked)
+        self.add_to_supervised_learning(should_action_be_blocked)
 
         self.add_state(self.current_state)
         self.add_state(self.next_state)
 
-        self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
+        self.add_to_experienced_samples(r)
         if self.replay_buffer.size() >= self.replay_buffer.minibatch_size:
             self.n_update_steps += 1
             for _ in range(self.num_replay):
@@ -260,7 +272,35 @@ class Agent:
         if self.active:
             self.current_state = self.next_state
 
-    def add_to_supervised_learning(self, r, should_action_be_blocked):
+    def add_to_experienced_samples(self, r):
+        self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
+        new_data = {}
+        if self.state_dim == 1:
+            new_data.update({'STATE': self.current_state, 'NEXT_STATE': self.next_state})
+        else:
+            for i in range(self.state_dim):
+                state_val = self.current_state[i]
+                next_state_val = self.next_state[i]
+                if type(state_val) == bool:
+                    state_val = int(state_val)
+                if type(next_state_val) == bool:
+                    next_state_val = int(next_state_val)
+                new_data.update({'STATE_VAR{0}'.format(i + 1): state_val, 'NEXT_STATE_VAR{0}'.format(i+1): next_state_val})
+        if self.action_dim == 1 and type(self.actions[self.initial_action]) in [int, float]:
+            action = self.actions[self.initial_action]
+            new_data.update({'INITIAL_ACTION': self.initial_action if type(action) == str else action})
+        else:
+            action = self.actions[self.initial_action]
+            action = np.array([action])
+            for i in range(self.action_dim):
+                new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
+        new_data.update({'REWARD': r, 'DONE?': 1-int(self.active)})
+        try:
+            self.experienced_samples = self.experienced_samples.append(new_data, ignore_index=True)
+        except MemoryError:
+            print('Unable to add experience to sample due to memory issues')
+
+    def add_to_supervised_learning(self, should_action_be_blocked):
         blocked_boolean = 1 if should_action_be_blocked else 0
         if self.enable_action_blocking:
             self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
@@ -273,7 +313,7 @@ class Agent:
                 if type(state_val) == bool:
                     state_val = int(state_val)
                 new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
-        if self.action_dim == 1:
+        if self.action_dim == 1 and type(self.actions[self.initial_action]) in [int, float]:
             action = self.actions[self.initial_action]
             new_data.update({'INITIAL_ACTION': self.initial_action if type(action) == str else action})
         else:
@@ -283,7 +323,10 @@ class Agent:
                 new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
 
         new_data.update({'BLOCKED?': blocked_boolean})
-        self.historical_data = self.historical_data.append(new_data, ignore_index=True)
+        try:
+            self.action_blocking_data = self.action_blocking_data.append(new_data, ignore_index=True)
+        except MemoryError:
+            print('Unable to add row to action blocking data due to memory issues')
 
     def optimize_network(self, experiences):
         pass
