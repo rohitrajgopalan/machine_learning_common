@@ -508,7 +508,8 @@ class Experiment:
 
             for agent in environment.agents:
                 agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
-                agent.historical_data.to_csv(
+                agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
+                agent.action_blocking_data.to_csv(
                     join(agent_ml_data_dir,
                          'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1)),
                     index=False)
