@@ -45,9 +45,9 @@ class ACAgent(Agent):
         outputs = []
         for experience in experiences:
             s, a, s_, r, terminal = experience
-            states.append(s)
+            states.append(s if self.state_dim > 1 else np.array([s]))
             action = self.actions[a]
-            actions.append(action)
+            actions.append(action if self.action_type == np.ndarray else np.array([action]))
             target_value = self.calculate_target_value(s_, r, 1 - terminal)
             outputs.append(target_value)
 
