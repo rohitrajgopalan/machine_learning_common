@@ -2,7 +2,10 @@ from os import listdir
 from os.path import isfile, join
 
 import numpy as np
-import pandas as pd
+try:
+    import modin.pandas as pd
+except ImportError:
+    import pandas as pd
 
 from .policy import Policy
 

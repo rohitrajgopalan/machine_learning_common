@@ -5,7 +5,10 @@ from os import mkdir
 from os.path import join, isdir
 
 import numpy as np
-import pandas as pd
+try:
+    import modin.pandas as pd
+except ImportError:
+    import pandas as pd
 
 from neural_network.network_types import NetworkOptimizer
 from reinforcement_learning.agent.ac_agent import ACAgent

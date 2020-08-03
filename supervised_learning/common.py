@@ -5,7 +5,10 @@ from os import listdir
 from os.path import join, isfile
 
 import numpy as np
-import pandas as pd
+try:
+    import modin.pandas as pd
+except ImportError:
+    import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor

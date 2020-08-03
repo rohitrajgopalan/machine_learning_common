@@ -1,4 +1,7 @@
-import pandas as pd
+try:
+    import modin.pandas as pd
+except ImportError:
+    import pandas as pd
 from sklearn.preprocessing import RobustScaler, Normalizer
 
 from neural_network.neural_network import NeuralNetwork

@@ -1,7 +1,10 @@
 from os import listdir
 from os.path import join, isfile
 import numpy as np
-import pandas as pd
+try:
+    import modin.pandas as pd
+except ImportError:
+    import pandas as pd
 
 from reinforcement_learning.environment.environment import ActionType
 from reinforcement_learning.replay.replay_buffer import ReplayBuffer
@@ -186,7 +189,7 @@ class Agent:
             return a_index
         else:
             self.actions.append(action)
-            return len(self.actions)-1
+            return len(self.actions) - 1
 
     def get_action(self, action_type):
         if action_type == ActionType.Initial:
