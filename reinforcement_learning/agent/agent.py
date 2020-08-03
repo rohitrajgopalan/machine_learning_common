@@ -17,6 +17,7 @@ class Agent:
     active = True
     actions = []
     action_dim = 0
+    action_type = None
 
     state_dim = 0
     initial_state = None
@@ -130,7 +131,7 @@ class Agent:
     def reset(self):
         self.current_state = self.initial_state
         self.action_blocking_data = pd.DataFrame(columns=self.action_blocking_data_columns)
-        self.experienced_samples_columns = pd.DataFrame(columns=self.experienced_samples_columns)
+        self.experienced_samples = pd.DataFrame(columns=self.experienced_samples_columns)
         self.active = True
 
     def load_actions_from_csv(self, csv_file):
@@ -164,11 +165,13 @@ class Agent:
             else:
                 action = row['ACTION']
             a_index_, does_exist = self.does_action_already_exist(action)
+            self.action_type = type(action)
             if not does_exist:
                 self.actions.append(action)
 
     def load_actions_from_npy(self, npy_file):
         actions_from_npy = np.load(npy_file)
+        self.action_type = np.ndarray
         if len(actions_from_npy.shape) == 3:
             _, _, n_elements = actions_from_npy.shape
             actions_from_npy = actions_from_npy.reshape(-1, n_elements)
@@ -188,7 +191,7 @@ class Agent:
 
     def does_action_already_exist(self, action_in_question):
         for a, action in enumerate(self.actions):
-            if type(action) == np.ndarray and type(action_in_question) == np.ndarray:
+            if self.action_type == np.ndarray:
                 if np.array_equal(action, action_in_question):
                     return a, True
             elif action == action_in_question:
@@ -227,7 +230,7 @@ class Agent:
         self.assign_initial_action()
         if self.initial_action is not None:
             action_val = self.actions[self.initial_action]
-            if type(action_val) == str:
+            if self.action_type == str:
                 action_val = self.initial_action
         else:
             action_val = None
@@ -239,7 +242,7 @@ class Agent:
             self.actual_action = None
             for action in other_actions:
                 action_val_ = self.actions[action]
-                if type(action_val_) == str:
+                if self.action_type == str:
                     action_val_ = action
                 if not self.action_blocker.should_we_block_action(self.current_state, action_val_):
                     self.actual_action = action
@@ -286,9 +289,9 @@ class Agent:
                 if type(next_state_val) == bool:
                     next_state_val = int(next_state_val)
                 new_data.update({'STATE_VAR{0}'.format(i + 1): state_val, 'NEXT_STATE_VAR{0}'.format(i+1): next_state_val})
-        if self.action_dim == 1 and type(self.actions[self.initial_action]) in [int, float]:
+        if self.action_type in [int, float, str]:
             action = self.actions[self.initial_action]
-            new_data.update({'INITIAL_ACTION': self.initial_action if type(action) == str else action})
+            new_data.update({'INITIAL_ACTION': self.initial_action if self.action_type == str else action})
         else:
             action = self.actions[self.initial_action]
             action = np.array([action])
@@ -313,9 +316,9 @@ class Agent:
                 if type(state_val) == bool:
                     state_val = int(state_val)
                 new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
-        if self.action_dim == 1 and type(self.actions[self.initial_action]) in [int, float]:
+        if self.action_type in [int, float, str]:
             action = self.actions[self.initial_action]
-            new_data.update({'INITIAL_ACTION': self.initial_action if type(action) == str else action})
+            new_data.update({'INITIAL_ACTION': self.initial_action if self.action_type == str else action})
         else:
             action = self.actions[self.initial_action]
             action = np.array([action])
