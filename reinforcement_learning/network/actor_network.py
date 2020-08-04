@@ -1,5 +1,5 @@
 import math
-
+import numpy as np
 import tensorflow as tf
 
 # Hyper Parameters
@@ -127,7 +127,7 @@ class ActorNetwork:
 
     def actions_for_state(self, state):
         return self.sess.run(self.action_output, feed_dict={
-            self.state_input: [state]
+            self.state_input: [state if type(state) == np.ndarray else np.array([state])]
         })
 
     def action(self, state):
@@ -140,7 +140,7 @@ class ActorNetwork:
 
     def target_actions_for_state(self, state):
         return self.sess.run(self.target_action_output, feed_dict={
-            self.target_state_input: [state]
+            self.target_state_input: [state if type(state) == np.ndarray else np.array([state])]
         })
 
     def target_action(self, state):
