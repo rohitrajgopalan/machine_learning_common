@@ -1,5 +1,5 @@
 import math
-
+import numpy as np
 import tensorflow as tf
 
 LAYER1_SIZE = 400
@@ -154,8 +154,8 @@ class CriticNetwork:
 
     def target_q(self, state, action):
         return self.sess.run(self.target_q_value_output, feed_dict={
-            self.target_state_input: [state],
-            self.target_action_input: [action]
+            self.target_state_input: [state if type(state) == np.ndarray else np.array([state])],
+            self.target_action_input: [action if type(action) == np.ndarray else np.array([action])]
         })[0, 0]
 
     def q_values(self, state_batch, action_batch):
@@ -165,8 +165,8 @@ class CriticNetwork:
 
     def q_value(self, state, action):
         return self.sess.run(self.q_value_output, feed_dict={
-            self.state_input: [state],
-            self.action_input: [action]
+            self.state_input: [state if type(state) == np.ndarray else np.array([state])],
+            self.action_input: [action if type(action) == np.ndarray else np.array([action])]
         })[0, 0]
 
     # f fan-in size
