@@ -48,6 +48,6 @@ class TDAgent(Agent):
         for state in self.experienced_states:
             action_values = self.policy_network.get_action_values(state)
             total_reward += np.sum(action_values)
-            final_policy[tuple(state) if self.state_dim > 1 else state] = self.algorithm.policy.actions_with_max_value(action_values)
+            final_policy[tuple(state) if type(state) == np.ndarray else state] = self.algorithm.policy.actions_with_max_value(action_values)
 
         return total_reward, final_policy
