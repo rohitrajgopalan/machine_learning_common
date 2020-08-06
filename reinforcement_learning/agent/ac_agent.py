@@ -87,5 +87,5 @@ class ACAgent(Agent):
                 total_reward += self.critic_network.q_value(state, action_)
                 self.actions.append(action_)
             if len(chosen_actions) > 0:
-                final_policy[tuple(state)] = chosen_actions
+                final_policy[tuple(state) if type(state) == np.ndarray else state] = chosen_actions
         return total_reward, final_policy
