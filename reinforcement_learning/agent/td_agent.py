@@ -51,3 +51,6 @@ class TDAgent(Agent):
             final_policy[tuple(state) if type(state) == np.ndarray else state] = self.algorithm.policy.actions_with_max_value(action_values)
 
         return total_reward, final_policy
+
+    def get_target_error(self, reward):
+        return self.algorithm.get_target_error(self.current_state, self.initial_action, self.next_state, reward, self.active, self.policy_network, self.target_network)

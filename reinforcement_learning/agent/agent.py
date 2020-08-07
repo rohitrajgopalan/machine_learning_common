@@ -4,8 +4,10 @@ import numpy as np
 import pandas as pd
 
 from reinforcement_learning.environment.environment import ActionType
-from reinforcement_learning.replay.replay_buffer import ReplayBuffer
+from reinforcement_learning.replay.choose_buffer import choose_buffer
 from reinforcement_learning.supervised.negative_action_blocker import NegativeActionBlocker
+from .learning_type import LearningType
+from ..replay.prioritized_replay_buffer import PrioritizedReplayBuffer
 
 
 class Agent:
@@ -15,8 +17,10 @@ class Agent:
     actions = []
     action_dim = 0
     action_type = None
+    learning_type = None
 
     state_dim = 0
+    state_type = None
     initial_state = None
     current_state = None
     next_state = None
@@ -39,6 +43,8 @@ class Agent:
 
     num_replay = 0
     replay_buffer = None
+
+    samples_dir = ''
 
     def __init__(self, args={}):
         # In an multi-agent setting, data from other agents might come and populate here which will
@@ -103,6 +109,9 @@ class Agent:
         elif len(actions_dir) > 0:
             self.load_actions_from_dir(actions_dir)
 
+        if self.learning_type == LearningType.COMBINED:
+            self.load_samples()
+
         self.reset()
 
     def blocker_init(self, csv_dir, dl_args=None):
@@ -110,8 +119,8 @@ class Agent:
             pass
         self.action_blocker = NegativeActionBlocker(csv_dir, self.state_dim, self.action_dim, dl_args)
 
-    def buffer_init(self, num_replay, size, minibatch_size, random_seed):
-        self.replay_buffer = ReplayBuffer(size, minibatch_size, random_seed)
+    def buffer_init(self, num_replay, buffer_type, size, minibatch_size, random_seed=None):
+        self.replay_buffer = choose_buffer(buffer_type, size, minibatch_size, random_seed)
         self.num_replay = num_replay
 
     def add_state(self, s):
@@ -124,13 +133,14 @@ class Agent:
             self.experienced_states.append(s)
 
     def reset(self):
-        self.current_state = self.initial_state
         self.action_blocking_data = pd.DataFrame(columns=self.action_blocking_data_columns)
-        self.experienced_samples = pd.DataFrame(columns=self.experienced_samples_columns)
+        if not self.learning_type == LearningType.OFF_POLICY:
+            self.experienced_samples = pd.DataFrame(columns=self.experienced_samples_columns)
+        self.current_state = self.initial_state
         self.active = True
 
     def load_actions_from_csv(self, csv_file):
-        df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file, engine='python', skip_blank_lines=True)
         for index, row in df.iterrows():
             if 'TYPE' in df.columns:
                 action_type = row['TYPE']
@@ -260,18 +270,25 @@ class Agent:
         self.add_state(self.current_state)
         self.add_state(self.next_state)
 
-        self.add_to_experienced_samples(r)
+        if not self.learning_type == LearningType.OFF_POLICY:
+            self.add_to_experienced_samples(r)
+
+        self.post_step_process(r)
+
+    def post_step_process(self, r):
+        if type(self.replay_buffer) == PrioritizedReplayBuffer:
+            self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active), target_error=self.get_target_error(r))
+        else:
+            self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
         if self.replay_buffer.size() >= self.replay_buffer.minibatch_size:
             self.n_update_steps += 1
             for _ in range(self.num_replay):
                 experiences = self.replay_buffer.sample()
                 self.optimize_network(experiences)
-
         if self.active:
             self.current_state = self.next_state
 
     def add_to_experienced_samples(self, r):
-        self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
         new_data = {}
         if self.state_dim == 1:
             new_data.update({'STATE': self.current_state, 'NEXT_STATE': self.next_state})
@@ -297,7 +314,8 @@ class Agent:
                     new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
         new_data.update({'REWARD': r, 'DONE?': 1-int(self.active)})
         try:
-            self.experienced_samples = self.experienced_samples.append(new_data, ignore_index=True)
+            df = pd.DataFrame(new_data)
+            self.experienced_samples = pd.concat([self.experienced_samples, df], ignore_index=True)
         except MemoryError:
             print('Unable to add experience to sample due to memory issues')
         except ValueError:
@@ -331,7 +349,8 @@ class Agent:
 
         new_data.update({'BLOCKED?': blocked_boolean})
         try:
-            self.action_blocking_data = self.action_blocking_data.append(new_data, ignore_index=True)
+            df = pd.DataFrame(new_data)
+            self.action_blocking_data = pd.concat([self.action_blocking_data, df], ignore_index=True)
         except MemoryError:
             print('Unable to add row to action blocking data due to memory issues')
         except ValueError:
@@ -343,3 +362,58 @@ class Agent:
 
     def get_results(self):
         return 0, {}
+
+    def load_samples(self):
+        data_files = [join(self.samples_dir, f) for f in listdir(self.samples_dir) if isfile(join(self.samples_dir, f))]
+        for file in data_files:
+            samples = pd.read_csv(file, engine='python', skip_blank_lines=True)
+            samples = samples.dropna()
+            for index, row in samples.iterrows():
+                if self.state_dim == 1:
+                    self.current_state = float(row['STATE']) if '.' in row['STATE'] else int(row['STATE'])
+                    self.next_state = float(row['NEXT_STATE']) if '.' in row['NEXT_STATE'] else int(row['NEXT_STATE'])
+                else:
+                    self.current_state = []
+                    self.next_state = []
+                    for i in range(1, self.state_dim + 1):
+                        state_col = 'STATE_VAR{0}'.format(i)
+                        next_state_col = 'NEXT_{0}'.format(state_col)
+                        self.current_state.append(float(row[state_col]) if '.' in row[state_col] else int(row[state_col]))
+                        self.next_state.append(float(row[next_state_col]) if '.' in row[next_state_col] else int(row[next_state_col]))
+                    if self.state_type == tuple:
+                        self.current_state = tuple(self.current_state)
+                        self.next_state = tuple(self.next_state)
+                    else:
+                        self.current_state = np.array(self.current_state)
+                        self.next_state = np.array(self.next_state)
+
+                if self.action_type == float:
+                    action = float(row['ACTION'])
+                elif self.action_type == int:
+                    action = int(row['ACTION'])
+                elif self.action_type == str:
+                    action = row['ACTION']
+                else:
+                    if self.action_dim == 1:
+                        action = float(row['ACTION']) if '.' in row['ACTION'] else int(row['ACTION'])
+                    else:
+                        action = []
+                        for i in range(1, self.action_dim + 1):
+                            action_col = 'INITIAL_ACTION_VAR{0}'.format(i)
+                            action.append(float(row[action_col]) if '.' in row[action_col] else int(action_col))
+                        if self.action_type == tuple:
+                            action = tuple(action)
+                        else:
+                            action = np.array(action)
+                a_index, does_exist = self.does_action_already_exist(action)
+                if not does_exist:
+                    self.actions.append(action)
+                    self.initial_action = len(self.actions)-1
+                else:
+                    self.initial_action = a_index
+                reward = float(row['REWARD'])
+                self.active = int(row['DONE?']) == 0
+                self.post_step_process(reward)
+
+    def get_target_error(self, reward):
+        return 0

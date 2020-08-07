@@ -13,17 +13,20 @@ from reinforcement_learning.agent.td_agent import TDAgent
 from reinforcement_learning.agent.learning_type import LearningType
 from reinforcement_learning.algorithm.algorithm import Algorithm, AlgorithmName
 from reinforcement_learning.policy.choose_policy import choose_policy
+from reinforcement_learning.replay.buffer_type import BufferType
 
 
 class Experiment:
     hyper_parameters_data = None
     td_agent_cols = ['ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'GAMMA', 'ENABLE_DOUBLE_LEARNING',
                      'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
-                     'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'NUM_REPLAY', 'BUFFER_SIZE',
+                     'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
+                     'BUFFER_SIZE',
                      'MINI_BATCH_SIZE',
                      'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
     ac_agent_cols = ['GAMMA', 'ENABLE_NOISE', 'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
-                     'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'NUM_REPLAY', 'BUFFER_SIZE',
+                     'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
+                     'BUFFER_SIZE',
                      'MINI_BATCH_SIZE',
                      'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
     agent_cols = ['AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'FINAL_POLICY_FILE', 'ACTIONS_FILE']
@@ -98,6 +101,7 @@ class Experiment:
         is_td_agent = len([agent for agent in agents if type(agent) == TDAgent]) > 0
         is_ac_agent = len([agent for agent in agents if type(agent) == ACAgent]) > 0
         new_data = {'LEARNING_TYPE': run_info['learning_type'].name,
+                    'REPLAY_TYPE': run_info['replay_type'].name,
                     'ENABLE_ACTION_BLOCKING': 'Yes' if run_info[
                         'enable_action_blocking'] else 'No',
                     'ACTION_BLOCKING_HELPER': 'Scikit-Learn' if
@@ -233,6 +237,7 @@ class Experiment:
                     'num_episodes': num_episodes,
                     'random_seed': random_seed}
         # Process Experimental Parameters
+        chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
         chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
         chosen_algorithms = self.choose_from_enums(AlgorithmName.all(), experimental_parameters, 'algorithm_names')
         chosen_policies = self.choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb'],
@@ -324,19 +329,19 @@ class Experiment:
                                                             agents.append(TDAgent(agent_info))
 
                                                         run_info['agents'] = agents
-                                                        if learning_type == LearningType.REPLAY:
-                                                            for num_replay in replay_buffer_hyper_parameters['num_replay']:
-                                                                run_info['num_replay'] = num_replay
-                                                                for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
-                                                                    run_info['buffer_size'] = buffer_size
-                                                                    for mini_batch_size in \
-                                                                            replay_buffer_hyper_parameters[
-                                                                                'mini_batch_size']:
-                                                                        run_info['mini_batch_size'] = mini_batch_size
-                                                                        agents, run_times, time_steps = self.perform_run(
-                                                                            run_info)
-                                                                        self.process_run(run_info, agents,
-                                                                                         run_times, time_steps)
+                                                        if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY, LearningType.COMBINED]:
+                                                            for replay_type in chosen_replay_types:
+                                                                run_info['replay_type'] = replay_type
+                                                                for num_replay in replay_buffer_hyper_parameters['num_replay']:
+                                                                    run_info['num_replay'] = num_replay
+                                                                    for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
+                                                                        run_info['buffer_size'] = buffer_size
+                                                                        for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
+                                                                            run_info['mini_batch_size'] = mini_batch_size
+                                                                            agents, run_times, time_steps = self.perform_run(
+                                                                                run_info)
+                                                                            self.process_run(run_info, agents,
+                                                                                             run_times, time_steps)
                                                         elif learning_type == LearningType.ONLINE:
                                                             agents, run_times, time_steps = self.perform_run(
                                                                 run_info)
@@ -370,6 +375,7 @@ class Experiment:
                     'num_episodes': num_episodes,
                     'random_seed': random_seed}
         # Process Experimental Parameters
+        chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
         chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
         chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
         chosen_enable_noise_flags = self.create_boolean_list(experimental_parameters, 'enable_noise')
@@ -428,17 +434,19 @@ class Experiment:
                                                                    'enable_action_blocking': enable_action_blocking})
                                                 agents.append(ACAgent(agent_info))
                                             run_info['agents'] = agents
-                                            if learning_type == LearningType.REPLAY:
-                                                for num_replay in replay_buffer_hyper_parameters['num_replay']:
-                                                    run_info['num_replay'] = num_replay
-                                                    for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
-                                                        run_info['buffer_size'] = buffer_size
-                                                        for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
-                                                            run_info[
-                                                                'mini_batch_size'] = mini_batch_size
-                                                            agents, run_times, time_steps = self.perform_run(
-                                                                run_info)
-                                                            self.process_run(run_info, agents, run_times, time_steps)
+                                            if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY, LearningType.COMBINED]:
+                                                for replay_type in chosen_replay_types:
+                                                    run_info['replay_type'] = replay_type
+                                                    for num_replay in replay_buffer_hyper_parameters['num_replay']:
+                                                        run_info['num_replay'] = num_replay
+                                                        for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
+                                                            run_info['buffer_size'] = buffer_size
+                                                            for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
+                                                                run_info['mini_batch_size'] = mini_batch_size
+                                                                agents, run_times, time_steps = self.perform_run(
+                                                                    run_info)
+                                                                self.process_run(run_info, agents, run_times,
+                                                                                 time_steps)
                                             elif learning_type == LearningType.ONLINE:
                                                 agents, run_times, time_steps = self.perform_run(
                                                     run_info)
@@ -446,7 +454,7 @@ class Experiment:
 
     def perform_run(self, run_info={}):
         agents = run_info['agents']
-        random_seed = run_info['random_seed'] if 'random_seed' in run_info else 0
+        random_seed = run_info['random_seed'] if 'random_seed' in run_info else None
         learning_type = run_info['learning_type'] if 'learning_type' in run_info else LearningType.ONLINE
         environment = run_info['environment']
 
@@ -463,16 +471,19 @@ class Experiment:
 
         for agent in agents:
             agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
-            agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
             if not isdir(agent_ml_data_dir):
                 mkdir(agent_ml_data_dir)
+
+            agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
             if not isdir(agent_samples_dir):
                 mkdir(agent_samples_dir)
-            if learning_type == LearningType.REPLAY:
-                agent.buffer_init(run_info['num_replay'], run_info['buffer_size'], run_info['mini_batch_size'],
+
+            if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY, LearningType.COMBINED]:
+                agent.buffer_init(run_info['replay_type'], run_info['num_replay'], run_info['buffer_size'],
+                                  run_info['mini_batch_size'],
                                   random_seed)
             elif learning_type == LearningType.ONLINE:
-                agent.buffer_init(1, 1, 1, random_seed)
+                agent.buffer_init(BufferType.BASIC, 1, 1, 1, None)
             if enable_action_blocking:
                 agent.blocker_init(csv_dir=agent_ml_data_dir, dl_args=action_blocking_dl_args)
             if type(agent) == TDAgent:
@@ -483,40 +494,54 @@ class Experiment:
                 agent.critic_network_init(run_info['critic_network_args'])
                 agent.exploration_noise_init(
                     run_info['exploration_noise_args'] if 'exploration_noise_args' in run_info else {})
-        environment.set_agents(agents)
 
-        num_episodes = run_info['num_episodes']
-        time_steps = np.zeros(num_episodes)
-        run_times = np.zeros(num_episodes)
-
-        for episode in range(num_episodes):
-            environment.reset()
-            done = False
+        if learning_type == LearningType.OFF_POLICY:
+            run_info['num_episodes'] = 1
+            time_steps = np.zeros(1)
+            run_times = np.zeros(1)
             start = datetime.now()
-            while not done:
-                done = environment.step()
-
-            time_steps[episode] = environment.current_time_step
-
+            for agent in agents:
+                agent.load_samples()
             end = datetime.now()
             diff = end - start
-            run_times[episode] = diff.seconds
+            run_times[0] = diff.seconds
+            return agents, run_times, time_steps
+        else:
+            environment.set_agents(agents)
+            num_episodes = run_info['num_episodes']
+            time_steps = np.zeros(num_episodes)
+            run_times = np.zeros(num_episodes)
 
-            for agent in environment.agents:
-                agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
-                agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
-                file_name = join(agent_ml_data_dir,
-                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
-                if isfile(file_name):
-                    file_name = join(file_name, 'duplicate')
-                agent.action_blocking_data.to_csv(
-                    file_name,
-                    index=False)
-                file_name = join(agent_samples_dir,
-                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
-                if isfile(file_name):
-                    file_name = join(file_name, 'duplicate')
-                agent.experienced_samples.to_csv(file_name,
-                                                 index=False)
+            for episode in range(num_episodes):
+                environment.reset()
+                done = False
+                start = datetime.now()
+                while not done:
+                    done = environment.step()
 
-        return environment.agents, run_times, time_steps
+                time_steps[episode] = environment.current_time_step
+
+                end = datetime.now()
+                diff = end - start
+                run_times[episode] = diff.seconds
+
+                for agent in environment.agents:
+                    agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
+                    file_name = join(agent_ml_data_dir,
+                                     'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
+                    if isfile(file_name):
+                        file_name = join(file_name, 'duplicate')
+                    agent.action_blocking_data.to_csv(
+                        file_name,
+                        index=False)
+
+                    if not learning_type == LearningType.OFF_POLICY:
+                        agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
+                        file_name = join(agent_samples_dir,
+                                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
+                        if isfile(file_name):
+                            file_name = join(file_name, 'duplicate')
+                        agent.experienced_samples.to_csv(file_name,
+                                                         index=False)
+
+            return environment.agents, run_times, time_steps

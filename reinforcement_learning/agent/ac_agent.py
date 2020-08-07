@@ -67,6 +67,9 @@ class ACAgent(Agent):
         target_q = self.critic_network.target_q(s_, a_)
         return r + (self.discount_factor * target_q * active)
 
+    def get_target_error(self, reward):
+        return self.calculate_target_value(self.next_state, reward, self.active) - self.critic_network.q_value(self.current_state, self.initial_action)
+
     def assign_initial_action(self):
         action = self.actor_network.action(self.current_state)
         if self.enable_noise:

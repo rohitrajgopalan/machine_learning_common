@@ -31,6 +31,9 @@ class Algorithm:
                                                                                              s_, a)
         return r + (self.discount_factor * self.get_scalar(s_, a_, net1) * active)
 
+    def get_target_error(self, s, a, s_, r, active, net1, net2):
+        return self.calculate_target_value(a, s_, r, active, net1, net2) - self.get_scalar(s, a, net1)
+
     def get_potential_action(self, network, s, a):
         if self.algorithm_name == AlgorithmName.SARSA:
             return self.policy.choose_action(s, network)

@@ -1,8 +1,5 @@
-import numpy as np
-
-
 class ReplayBuffer:
-    def __init__(self, size, minibatch_size, seed):
+    def __init__(self, size, minibatch_size, **args):
         """
         Args:
             size (integer): The size of the replay buffer.
@@ -14,29 +11,13 @@ class ReplayBuffer:
             self.minibatch_size = minibatch_size
         elif type(minibatch_size) == float and 0 < minibatch_size <= 1.0:
             self.minibatch_size = int(minibatch_size * size)
-        self.rand_generator = np.random.RandomState(seed)
         self.max_size = size
 
-    def append(self, state, action, next_state, reward, terminal):
-        """
-        Args:
-            state (Numpy array): The state.
-            action (integer): The action.
-            reward (float): The reward.
-            terminal (integer): 1 if the next state is a terminal state and 0 otherwise.
-            next_state (Numpy array): The next state.
-        """
-        if len(self.buffer) == self.max_size:
-            del self.buffer[0]
-        self.buffer.append([state, action, next_state, reward, terminal])
+    def append(self, state, action, next_state, reward, terminal, **args):
+        pass
 
     def sample(self):
-        """
-        Returns:
-            A list of transition tuples including state, action, reward, terinal, and next_state
-        """
-        ids = self.rand_generator.choice(np.arange(len(self.buffer)), size=self.minibatch_size)
-        return [self.buffer[idx] for idx in ids]
+        return []
 
     def size(self):
         return len(self.buffer)

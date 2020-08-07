@@ -108,7 +108,7 @@ def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name
     for f in data_files:
         df = None
         if f.endswith(".csv"):
-            df = pd.read_csv(f)
+            df = pd.read_csv(f, engine='python', usecols=cols, skip_blank_lines=True)
         elif f.endswith(".json"):
             df = pd.read_json(f)
         elif f.endswith(".xls") or f.endswith(".xlsx"):
@@ -116,6 +116,8 @@ def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name
                 df = pd.read_excel(f, sheet_name=sheet_name, header=header_index)
             else:
                 df = pd.read_excel(f)
+        df = df.dropna()
+        df.reset_index(drop=True)
         if df is not None and len(df.index) > 0:
             df_from_each_file.append(df)
     filtered_dfs = []
