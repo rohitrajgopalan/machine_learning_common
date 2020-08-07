@@ -314,8 +314,7 @@ class Agent:
                     new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
         new_data.update({'REWARD': r, 'DONE?': 1-int(self.active)})
         try:
-            df = pd.DataFrame(new_data)
-            self.experienced_samples = pd.concat([self.experienced_samples, df], ignore_index=True)
+            self.experienced_samples = self.experienced_samples(new_data, ignore_index=True)
         except MemoryError:
             print('Unable to add experience to sample due to memory issues')
         except ValueError:
@@ -349,8 +348,7 @@ class Agent:
 
         new_data.update({'BLOCKED?': blocked_boolean})
         try:
-            df = pd.DataFrame(new_data)
-            self.action_blocking_data = pd.concat([self.action_blocking_data, df], ignore_index=True)
+            self.action_blocking_data = self.action_blocking_data.append(new_data, ignore_index=True)
         except MemoryError:
             print('Unable to add row to action blocking data due to memory issues')
         except ValueError:
