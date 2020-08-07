@@ -343,6 +343,7 @@ class Experiment:
                                                                             self.process_run(run_info, agents,
                                                                                              run_times, time_steps)
                                                         elif learning_type == LearningType.ONLINE:
+                                                            run_info['replay_type'] = BufferType.BASIC
                                                             agents, run_times, time_steps = self.perform_run(
                                                                 run_info)
                                                             self.process_run(run_info, agents, run_times,
