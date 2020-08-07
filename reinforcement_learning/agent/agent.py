@@ -119,7 +119,7 @@ class Agent:
             pass
         self.action_blocker = NegativeActionBlocker(csv_dir, self.state_dim, self.action_dim, dl_args)
 
-    def buffer_init(self, num_replay, buffer_type, size, minibatch_size, random_seed=None):
+    def buffer_init(self, buffer_type, num_replay, size, minibatch_size, random_seed=None):
         self.replay_buffer = choose_buffer(buffer_type, size, minibatch_size, random_seed)
         self.num_replay = num_replay
 
