@@ -314,7 +314,7 @@ class Agent:
                     new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
         new_data.update({'REWARD': r, 'DONE?': 1-int(self.active)})
         try:
-            self.experienced_samples = self.experienced_samples(new_data, ignore_index=True)
+            self.experienced_samples = self.experienced_samples.append(new_data, ignore_index=True)
         except MemoryError:
             print('Unable to add experience to sample due to memory issues')
         except ValueError:
