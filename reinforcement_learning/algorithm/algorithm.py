@@ -1,6 +1,7 @@
 import enum
 
 import numpy as np
+from reinforcement_learning.network.action_value_network import ActionValueNetwork
 
 
 class AlgorithmName(enum.Enum):
@@ -25,29 +26,27 @@ class Algorithm:
         for key in args:
             setattr(self, key, args[key])
 
-    def calculate_target_value(self, a, s_, r, active, net1, net2):
-        a_ = self.get_potential_action(net2, s_,
-                                       a) if net2 is not None else self.get_potential_action(net1,
-                                                                                             s_, a)
-        return r + (self.discount_factor * self.get_scalar(s_, a_, net1) * active)
+    def calculate_target_value(self, a, s_, r, active, network: ActionValueNetwork):
+        a_ = self.get_potential_action(network, s_, a, network.is_double)
+        return r + (self.discount_factor * self.get_scalar(s_, a_, network, False) * active)
 
-    def get_target_error(self, s, a, s_, r, active, net1, net2):
-        return self.calculate_target_value(a, s_, r, active, net1, net2) - self.get_scalar(s, a, net1)
+    def get_target_error(self, s, a, s_, r, active, network):
+        return self.calculate_target_value(a, s_, r, active, network) - self.get_scalar(s, a, network, False)
 
-    def get_potential_action(self, network, s, a):
+    def get_potential_action(self, network: ActionValueNetwork, s, a, use_target):
         if self.algorithm_name == AlgorithmName.SARSA:
-            return self.policy.choose_action(s, network)
+            return self.policy.choose_action(s, network, use_target)
         elif self.algorithm_name == AlgorithmName.Q:
-            return self.policy.argmax(network.get_action_values(s))
+            return self.policy.argmax(network.get_target_action_values(s) if use_target else network.get_action_values(s))
         elif self.algorithm_name == AlgorithmName.MCQL:
             return a
         else:
             return -1
 
-    def get_scalar(self, s, a, network):
-        q_mat = network.get_action_values(s)
+    def get_scalar(self, s, a, network: ActionValueNetwork, use_target):
+        q_mat = network.get_target_action_values(s) if use_target else network.get_action_values(s)
         if self.algorithm_name == AlgorithmName.EXPECTED_SARSA:
-            policy_mat = self.policy.derive(s, network)
+            policy_mat = self.policy.derive(s, network, use_target)
             dot_product = np.dot(policy_mat, q_mat.T)
             try:
                 return dot_product[0, 0]

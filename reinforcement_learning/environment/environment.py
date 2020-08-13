@@ -18,7 +18,7 @@ class Environment:
     required_action_dim = 0
     max_time_steps = 0
     current_time_step = 0
-
+    are_states_images = False
     min_penalty = 1
 
     # agent_id: (next_state_1, rewards_1, next_state_2, rewards_2) or
@@ -30,6 +30,7 @@ class Environment:
         self.required_state_dim = required_state_dim
         self.min_penalty = min_penalty
         self.max_time_steps = max_time_steps
+        self.are_states_images = (type(self.required_state_dim) == tuple and len(self.required_state_dim) > 1)
 
     def set_agents(self, agents):
         self.agents = agents

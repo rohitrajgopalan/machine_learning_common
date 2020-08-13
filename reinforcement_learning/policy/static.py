@@ -9,6 +9,7 @@ from .policy import Policy
 
 class StaticPolicy(Policy):
     policy_table = {}
+    state_dim = 0
 
     def __init__(self, args):
         super().__init__(args)
@@ -40,14 +41,14 @@ class StaticPolicy(Policy):
                     else:
                         val = int(val)
                     state_as_list.append(val)
-                state = np.array([state_as_list])
+                state = np.array([state_as_list]).reshape(self.state_dim)
             if state not in self.policy_table:
                 self.policy_table[state] = []
             action = int(row['ACTION'])
             if action not in self.policy_table[state]:
                 self.policy_table[state].append(action)
 
-    def derive(self, state, network):
+    def derive(self, state, network, use_target=False):
         if type(state) == tuple:
             state = np.array([state])
         policy_probs = np.zeros(self.num_actions)
@@ -57,7 +58,7 @@ class StaticPolicy(Policy):
                 policy_probs[action] = 1 / len(actions_to_take)
         return policy_probs
 
-    def choose_action(self, state, network):
+    def choose_action(self, state, network, use_target=False):
         if type(state) == tuple:
             state = np.array([state])
         if state in self.policy_table:

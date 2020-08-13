@@ -8,8 +8,10 @@ import numpy as np
 import pandas as pd
 
 from neural_network.network_types import NetworkOptimizer
-from reinforcement_learning.agent.ac_agent import ACAgent
+from reinforcement_learning.agent.ddpg_agent import DDPGAgent
+from reinforcement_learning.agent.pg_agent import PGAgent
 from reinforcement_learning.agent.td_agent import TDAgent
+from reinforcement_learning.agent.a2c_agent import A2CAgent
 from reinforcement_learning.agent.learning_type import LearningType
 from reinforcement_learning.algorithm.algorithm import Algorithm, AlgorithmName
 from reinforcement_learning.policy.choose_policy import choose_policy
@@ -18,27 +20,33 @@ from reinforcement_learning.replay.buffer_type import BufferType
 
 class Experiment:
     hyper_parameters_data = None
-    td_agent_cols = ['ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'GAMMA', 'ENABLE_DOUBLE_LEARNING',
+    td_agent_cols = ['RUN_ID', 'ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'GAMMA', 'CONVERT_IMAGES_TO_GRAYSCALE', 'ADD_POOLING_FOR_IMAGES', 'ENABLE_DOUBLE_LEARNING',
                      'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
                      'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
                      'BUFFER_SIZE',
                      'MINI_BATCH_SIZE',
                      'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
-    ac_agent_cols = ['GAMMA', 'ENABLE_NOISE', 'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
-                     'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
-                     'BUFFER_SIZE',
-                     'MINI_BATCH_SIZE',
-                     'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
-    agent_cols = ['AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'FINAL_POLICY_FILE', 'ACTIONS_FILE']
+    ddpg_agent_cols = ['RUN_ID', 'CONVERT_IMAGES_TO_GRAYSCALE', 'ADD_POOLING_FOR_IMAGES', 'GAMMA', 'TAU', 'ENABLE_NOISE', 'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
+                       'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
+                       'BUFFER_SIZE',
+                       'MINI_BATCH_SIZE',
+                       'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
+    other_agent_cols = ['RUN_ID', 'CONVERT_IMAGES_TO_GRAYSCALE', 'ADD_POOLING_FOR_IMAGES', 'GAMMA', 'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
+                        'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
+                        'BUFFER_SIZE',
+                        'MINI_BATCH_SIZE',
+                        'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
+    agent_cols = ['RUN_ID', 'AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'NUM_NEGATIVE_ACTIONS_TAKEN', 'FINAL_POLICY_FILE',
+                  'ACTIONS_FILE']
     agents_data = None
     action_cols = ['ID', 'ACTION', 'TYPE']
     output_dir = ''
     dt_str = ''
+    current_run_ID = 0
 
     def __init__(self, output_dir):
         self.output_dir = output_dir
-        self.agents_data = pd.DataFrame(columns=self.agent_cols)
-        self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        self.current_run_ID = 0
 
     def choose_from_options(self, all_possible_options, chosen_types, key):
         chosen_options = []
@@ -76,7 +84,7 @@ class Experiment:
                                 item) == enum.Enum and item == some_type:
                             chosen_options.append(some_type)
                             break
-            elif type(chosen_types[key]) == enum.Enum:
+            elif chosen_types[key] in all_possible_options:
                 chosen_options = [chosen_types[key]]
         else:
             chosen_options = all_possible_options
@@ -97,10 +105,14 @@ class Experiment:
         return chosen_options
 
     def process_run(self, run_info, agents, run_times, time_steps):
+        self.current_run_ID += 1
         hyper_parameter_val = 0
         is_td_agent = len([agent for agent in agents if type(agent) == TDAgent]) > 0
-        is_ac_agent = len([agent for agent in agents if type(agent) == ACAgent]) > 0
-        new_data = {'LEARNING_TYPE': run_info['learning_type'].name,
+        is_ddpg_agent = len([agent for agent in agents if type(agent) == DDPGAgent]) > 0
+        new_data = {'RUN_ID': self.current_run_ID,
+                    'CONVERT_IMAGES_TO_GRAYSCALE': 'Yes' if run_info['convert_to_grayscale'] else 'No',
+                    'ADD_POOLING_FOR_IMAGES': 'Yes' if run_info['add_pooling'] else 'No',
+                    'LEARNING_TYPE': run_info['learning_type'].name,
                     'REPLAY_TYPE': run_info['replay_type'].name,
                     'ENABLE_ACTION_BLOCKING': 'Yes' if run_info[
                         'enable_action_blocking'] else 'No',
@@ -141,10 +153,19 @@ class Experiment:
                              'EPSILON': run_info['action_network_args'][
                                  'optimizer_args']['epsilon'],
                              })
-        if is_ac_agent:
+        elif is_ddpg_agent:
             new_data.update({'GAMMA': run_info['discount_factor'],
                              'ENABLE_NOISE': 'Yes' if run_info['enable_noise'] else 'No',
-                             'OPTIMIZER': NetworkOptimizer.ADAM.name,
+                             'OPTIMIZER': run_info['actor_network_args']['optimizer_type'].name,
+                             'ALPHA': run_info['optimizer_args']['learning_rate'],
+                             'BETA_V': run_info['optimizer_args']['beta_v'],
+                             'BETA_M': run_info['optimizer_args']['beta_m'],
+                             'EPSILON': run_info['optimizer_args']['epsilon'],
+                             'TAU': run_info['tau']
+                             })
+        else:
+            new_data.update({'GAMMA': run_info['discount_factor'],
+                             'OPTIMIZER': run_info['actor_network_args']['optimizer_type'].name,
                              'ALPHA': run_info['optimizer_args']['learning_rate'],
                              'BETA_V': run_info['optimizer_args']['beta_v'],
                              'BETA_M': run_info['optimizer_args']['beta_m'],
@@ -219,11 +240,15 @@ class Experiment:
                     agent_final_policy = agent_final_policy.append(new_data, ignore_index=True)
             agent_final_policy.to_csv(agent_final_policy_file, index=False)
             self.agents_data = self.agents_data.append(
-                {'AGENT_ID': agent.agent_id, 'TOTAL_REWARD': total_reward,
+                {'RUN_ID': self.current_run_ID, 'AGENT_ID': agent.agent_id, 'TOTAL_REWARD': total_reward,
                  'NUM_UPDATE_STEPS': agent.n_update_steps, 'FINAL_POLICY_FILE': file_name,
-                 'ACTIONS_FILE': file_name}, ignore_index=True)
+                 'ACTIONS_FILE': file_name, 'NUM_NEGATIVE_ACTIONS_TAKEN': agent.num_negative_actions_taken},
+                ignore_index=True)
 
     def perform_experiment_td(self, experimental_parameters, specifics):
+        self.current_run_ID = 0
+        self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        self.agents_data = pd.DataFrame(columns=self.agent_cols)
         self.hyper_parameters_data = pd.DataFrame(columns=self.td_agent_cols)
         # Gather specifics
         agents_info_list = specifics['agent_info_list']
@@ -231,16 +256,19 @@ class Experiment:
         num_episodes = specifics['num_episodes']
         environment = specifics['environment']
         random_seed = specifics['seed'] if 'seed' in specifics else 0
+        policy_network_args = specifics['policy_network_args'] if 'policy_network_args' in specifics else None
         action_blocking_dl_args = specifics[
             'action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
         run_info = {'environment': environment,
                     'num_episodes': num_episodes,
                     'random_seed': random_seed}
         # Process Experimental Parameters
+        chosen_add_pooling_flags = self.create_boolean_list(experimental_parameters, 'add_pooling') if environment.are_states_images else [False]
+        chosen_grayscale_flags = self.create_boolean_list(experimental_parameters, 'convert_to_grayscale') if environment.are_states_images else [False]
         chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
         chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
         chosen_algorithms = self.choose_from_enums(AlgorithmName.all(), experimental_parameters, 'algorithm_names')
-        chosen_policies = self.choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb'],
+        chosen_policies = self.choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb', 'network'],
                                                    experimental_parameters, 'policies')
         chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
         chosen_double_agent_flags = self.create_boolean_list(experimental_parameters, 'enable_double_learning')
@@ -261,101 +289,135 @@ class Experiment:
             optimizer_hyper_parameters['beta_vs'] = [0.99]
         if 'epsilons' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['epsilons']) == 0:
             optimizer_hyper_parameters['epsilons'] = [1e-07]
-        for optimizer_type in chosen_optimizers:
-            action_network_args.update({'optimizer_type': optimizer_type})
-            if action_blocking_dl_args is not None:
-                action_blocking_dl_args['optimizer_type'] = optimizer_type
-            optimizer_args = {}
-            for learning_rate in optimizer_hyper_parameters['alphas']:
-                optimizer_args['learning_rate'] = learning_rate
-                for beta_m in optimizer_hyper_parameters['beta_ms']:
-                    optimizer_args['beta_m'] = beta_m
-                    for beta_v in optimizer_hyper_parameters['beta_vs']:
-                        optimizer_args['beta_v'] = beta_v
-                        for epsilon in optimizer_hyper_parameters['epsilons']:
-                            optimizer_args['epsilon'] = epsilon
-                            run_info['optimizer_args'] = optimizer_args
-                            action_network_args['optimizer_args'] = optimizer_args
-                            if action_blocking_dl_args is not None:
-                                action_blocking_dl_args['optimizer_args'] = optimizer_args
-                            run_info.update({'action_network_args': action_network_args,
-                                             'action_blocking_dl_args': action_blocking_dl_args})
-                            for algorithm_name in chosen_algorithms:
-                                run_info['algorithm_name'] = algorithm_name
-                                algorithm_args = {'algorithm_name': algorithm_name}
-                                for discount_factor in algorithm_hyper_parameters['gammas']:
-                                    algorithm_args['discount_factor'] = discount_factor
-                                    run_info['algorithm_args'] = algorithm_args
-                                    for policy_name in chosen_policies:
-                                        run_info['policy_name'] = policy_name
-                                        policy_args = {'random_seed': random_seed,
-                                                       'min_penalty': environment.min_penalty}
-                                        policy_hyper_parameter_list = [0]
-                                        hyper_parameter_type = ''
-                                        if policy_name == 'epsilon_greedy':
-                                            policy_hyper_parameter_list = policy_hyper_parameters['epsilons']
-                                            hyper_parameter_type = 'epsilon'
-                                        elif policy_name == 'softmax':
-                                            policy_hyper_parameter_list = policy_hyper_parameters['taus']
-                                            hyper_parameter_type = 'tau'
-                                        elif policy_name == 'ucb':
-                                            policy_hyper_parameter_list = policy_hyper_parameters[
-                                                'confidence_factors']
-                                            hyper_parameter_type = 'ucb_c'
-                                        for policy_hyper_parameter in policy_hyper_parameter_list:
-                                            if len(hyper_parameter_type) > 0:
-                                                policy_args[hyper_parameter_type] = policy_hyper_parameter
-                                            for enable_action_blocking in chosen_action_blockers:
-                                                run_info['enable_action_blocking'] = enable_action_blocking
-                                                for learning_type in chosen_learning_types:
-                                                    run_info['learning_type'] = learning_type
-                                                    for is_double_agent in chosen_double_agent_flags:
-                                                        run_info['enable_double_learning'] = is_double_agent
-                                                        agents = []
-                                                        for i, agent_info in enumerate(agents_info_list):
-                                                            agent_info.update({'agent_id': i + 1,
-                                                                               'is_double_agent': is_double_agent,
-                                                                               'learning_type': learning_type,
-                                                                               'state_dim': environment.required_state_dim,
-                                                                               'action_dim': environment.required_action_dim,
-                                                                               'enable_action_blocking': enable_action_blocking})
-                                                            policy_args.update(
-                                                                {'num_actions': len(agent_info['actions'])})
-                                                            run_info['policy_args'] = policy_args
-                                                            policy = choose_policy(policy_name, policy_args)
-                                                            algorithm_args['policy'] = policy
-                                                            algorithm = Algorithm(algorithm_args)
-                                                            agent_info.update({'algorithm': algorithm})
-                                                            agents.append(TDAgent(agent_info))
+        for convert_to_grayscale in chosen_grayscale_flags:
+            run_info['convert_to_grayscale'] = convert_to_grayscale
+            if policy_network_args is not None:
+                policy_network_args.update({'convert_to_grayscale': convert_to_grayscale})
+                for add_pooling in chosen_add_pooling_flags:
+                    run_info['add_pooling'] = add_pooling
+                    if policy_network_args is not None:
+                        policy_network_args.update({'add_pooling': add_pooling})
+                    for optimizer_type in chosen_optimizers:
+                        action_network_args.update({'optimizer_type': optimizer_type})
+                        if action_blocking_dl_args is not None:
+                            action_blocking_dl_args['optimizer_type'] = optimizer_type
+                        if policy_network_args is not None:
+                            policy_network_args['optimizer_type'] = optimizer_type
+                        optimizer_args = {}
+                        for learning_rate in optimizer_hyper_parameters['alphas']:
+                            optimizer_args['learning_rate'] = learning_rate
+                            for beta_m in optimizer_hyper_parameters['beta_ms']:
+                                optimizer_args['beta_m'] = beta_m
+                                for beta_v in optimizer_hyper_parameters['beta_vs']:
+                                    optimizer_args['beta_v'] = beta_v
+                                    for epsilon in optimizer_hyper_parameters['epsilons']:
+                                        optimizer_args['epsilon'] = epsilon
+                                        run_info['optimizer_args'] = optimizer_args
+                                        action_network_args['optimizer_args'] = optimizer_args
+                                        if action_blocking_dl_args is not None:
+                                            action_blocking_dl_args['optimizer_args'] = optimizer_args
+                                        if policy_network_args is not None:
+                                            policy_network_args['optimizer_args'] = optimizer_args
+                                        run_info.update({'action_network_args': action_network_args,
+                                                         'action_blocking_dl_args': action_blocking_dl_args})
+                                        for algorithm_name in chosen_algorithms:
+                                            run_info['algorithm_name'] = algorithm_name
+                                            algorithm_args = {'algorithm_name': algorithm_name}
+                                            for discount_factor in algorithm_hyper_parameters['gammas']:
+                                                algorithm_args['discount_factor'] = discount_factor
+                                                run_info['algorithm_args'] = algorithm_args
+                                                for policy_name in chosen_policies:
+                                                    run_info['policy_name'] = policy_name
+                                                    policy_args = {'random_seed': random_seed,
+                                                                   'min_penalty': environment.min_penalty}
+                                                    policy_hyper_parameter_list = [0]
+                                                    hyper_parameter_type = ''
+                                                    if policy_name == 'epsilon_greedy':
+                                                        policy_hyper_parameter_list = policy_hyper_parameters['epsilons']
+                                                        hyper_parameter_type = 'epsilon'
+                                                    elif policy_name == 'softmax':
+                                                        policy_hyper_parameter_list = policy_hyper_parameters['taus']
+                                                        hyper_parameter_type = 'tau'
+                                                    elif policy_name == 'ucb':
+                                                        policy_hyper_parameter_list = policy_hyper_parameters[
+                                                            'confidence_factors']
+                                                        hyper_parameter_type = 'ucb_c'
+                                                    for policy_hyper_parameter in policy_hyper_parameter_list:
+                                                        if len(hyper_parameter_type) > 0:
+                                                            policy_args[hyper_parameter_type] = policy_hyper_parameter
+                                                        for enable_action_blocking in chosen_action_blockers:
+                                                            run_info['enable_action_blocking'] = enable_action_blocking
+                                                            for learning_type in chosen_learning_types:
+                                                                run_info['learning_type'] = learning_type
+                                                                for is_double_agent in chosen_double_agent_flags:
+                                                                    run_info['enable_double_learning'] = is_double_agent
+                                                                    agents = []
+                                                                    for i, agent_info in enumerate(agents_info_list):
+                                                                        agent_info.update({'agent_id': i + 1,
+                                                                                           'is_double_agent': is_double_agent,
+                                                                                           'learning_type': learning_type,
+                                                                                           'state_dim': environment.required_state_dim,
+                                                                                           'action_dim': environment.required_action_dim,
+                                                                                           'enable_action_blocking': enable_action_blocking})
+                                                                        policy_args.update(
+                                                                            {'state_dim': environment.required_state_dim,
+                                                                             'num_actions': len(agent_info['actions'])})
+                                                                        if policy_name == 'network':
+                                                                            if policy_network_args is None:
+                                                                                policy_args.update(
+                                                                                    {'optimizer_type': optimizer_type,
+                                                                                     'optimizer_args': optimizer_args,
+                                                                                     'add_pooling': add_pooling,
+                                                                                     'convert_to_grayscale': convert_to_grayscale})
+                                                                            else:
+                                                                                policy_args.update(
+                                                                                    {'network_args': policy_network_args})
+                                                                        run_info['policy_args'] = policy_args
+                                                                        policy = choose_policy(policy_name, policy_args)
+                                                                        algorithm_args['policy'] = policy
+                                                                        algorithm = Algorithm(algorithm_args)
+                                                                        agent_info.update({'algorithm': algorithm})
+                                                                        agents.append(TDAgent(agent_info))
 
-                                                        run_info['agents'] = agents
-                                                        if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY, LearningType.COMBINED]:
-                                                            for replay_type in chosen_replay_types:
-                                                                run_info['replay_type'] = replay_type
-                                                                for num_replay in replay_buffer_hyper_parameters['num_replay']:
-                                                                    run_info['num_replay'] = num_replay
-                                                                    for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
-                                                                        run_info['buffer_size'] = buffer_size
-                                                                        for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
-                                                                            run_info['mini_batch_size'] = mini_batch_size
-                                                                            agents, run_times, time_steps = self.perform_run(
-                                                                                run_info)
-                                                                            self.process_run(run_info, agents,
-                                                                                             run_times, time_steps)
-                                                        elif learning_type == LearningType.ONLINE:
-                                                            run_info['replay_type'] = BufferType.BASIC
-                                                            agents, run_times, time_steps = self.perform_run(
-                                                                run_info)
-                                                            self.process_run(run_info, agents, run_times,
-                                                                             time_steps)
+                                                                    run_info['agents'] = agents
+                                                                    if learning_type in [LearningType.REPLAY,
+                                                                                         LearningType.OFF_POLICY,
+                                                                                         LearningType.COMBINED]:
+                                                                        for replay_type in chosen_replay_types:
+                                                                            run_info['replay_type'] = replay_type
+                                                                            for num_replay in replay_buffer_hyper_parameters[
+                                                                                'num_replay']:
+                                                                                run_info['num_replay'] = num_replay
+                                                                                for buffer_size in replay_buffer_hyper_parameters[
+                                                                                    'buffer_size']:
+                                                                                    run_info['buffer_size'] = buffer_size
+                                                                                    for mini_batch_size in \
+                                                                                            replay_buffer_hyper_parameters[
+                                                                                                'mini_batch_size']:
+                                                                                        run_info[
+                                                                                            'mini_batch_size'] = mini_batch_size
+                                                                                        agents, run_times, time_steps = self.perform_run(
+                                                                                            run_info)
+                                                                                        self.process_run(run_info, agents,
+                                                                                                         run_times, time_steps)
+                                                                    elif learning_type == LearningType.ONLINE:
+                                                                        run_info['replay_type'] = BufferType.BASIC
+                                                                        agents, run_times, time_steps = self.perform_run(
+                                                                            run_info)
+                                                                        self.process_run(run_info, agents, run_times,
+                                                                                         time_steps)
 
         self.hyper_parameters_data.to_csv(
-            '{0}'.format(os.path.join(self.output_dir, 'run_summary_{0}.csv'.format(self.dt_str))), index=False)
-        self.agents_data.to_csv('{0}'.format(os.path.join(self.output_dir, 'agents_data_{0}.csv'.format(self.dt_str))),
-                                index=False)
+            '{0}'.format(os.path.join(self.output_dir, 'td_run_summary_{0}.csv'.format(self.dt_str))), index=False)
+        self.agents_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'td_agents_data_{0}.csv'.format(self.dt_str))),
+            index=False)
 
-    def perform_experiement_ac(self, experimental_parameters, specifics):
-        self.hyper_parameters_data = pd.DataFrame(columns=self.ac_agent_cols)
+    def perform_experiement_ddpg(self, experimental_parameters, specifics):
+        self.current_run_ID = 0
+        self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        self.agents_data = pd.DataFrame(columns=self.agent_cols)
+        self.hyper_parameters_data = pd.DataFrame(columns=self.ddpg_agent_cols)
         agents_info_list = specifics['agent_info_list']
         actor_network_args = {}
         critic_network_args = {}
@@ -370,12 +432,13 @@ class Experiment:
         random_seed = specifics['seed'] if 'seed' in specifics else 0
         action_blocking_dl_args = specifics[
             'action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
-        if action_blocking_dl_args is not None:
-            action_blocking_dl_args.update({'optimizer_type': NetworkOptimizer.ADAM})
         run_info = {'environment': environment,
                     'num_episodes': num_episodes,
                     'random_seed': random_seed}
         # Process Experimental Parameters
+        chosen_add_pooling_flags = self.create_boolean_list(experimental_parameters, 'add_pooling') if environment.are_states_images else [False]
+        chosen_grayscale_flags = self.create_boolean_list(experimental_parameters, 'convert_to_grayscale') if environment.are_states_images else [False]
+        chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
         chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
         chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
         chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
@@ -396,63 +459,313 @@ class Experiment:
             optimizer_hyper_parameters['epsilons'] = [1e-07]
         if 'taus' not in experimental_parameters or len(experimental_parameters['taus']) == 0:
             experimental_parameters['taus'] = [0.4]
-        for tau in experimental_parameters['taus']:
-            actor_network_args['tau'] = tau
-            critic_network_args['tau'] = tau
-            optimizer_args = {}
-            for learning_rate in optimizer_hyper_parameters['alphas']:
-                optimizer_args['learning_rate'] = learning_rate
-                for beta_m in optimizer_hyper_parameters['beta_ms']:
-                    optimizer_args['beta_m'] = beta_m
-                    for beta_v in optimizer_hyper_parameters['beta_vs']:
-                        optimizer_args['beta_v'] = beta_v
-                        for epsilon in optimizer_hyper_parameters['epsilons']:
-                            optimizer_args['epsilon'] = epsilon
-                            actor_network_args['optimizer_args'] = optimizer_args
-                            critic_network_args['optimizer_args'] = optimizer_args
-                            run_info['optimizer_args'] = optimizer_args
-                            if action_blocking_dl_args is not None:
-                                action_blocking_dl_args['optimizer_args'] = optimizer_args
-                            run_info.update({'actor_network_args': actor_network_args,
-                                             'critic_network_args': critic_network_args,
-                                             'action_blocking_dl_args': action_blocking_dl_args})
-                            for enable_action_blocking in chosen_action_blockers:
-                                run_info['enable_action_blocking'] = enable_action_blocking
-                                for learning_type in chosen_learning_types:
-                                    run_info['learning_type'] = learning_type
-                                    for enable_noise in chosen_enable_noise_flags:
-                                        run_info['enable_noise'] = enable_noise
-                                        for gamma in experimental_parameters['gammas']:
-                                            run_info['discount_factor'] = gamma
-                                            agents = []
-                                            for i, agent_info in enumerate(agents_info_list):
-                                                agent_info.update({'agent_id': i + 1,
-                                                                   'enable_noise': enable_noise,
-                                                                   'learning_type': learning_type,
-                                                                   'discount_factor': gamma,
-                                                                   'state_dim': environment.required_state_dim,
-                                                                   'action_dim': environment.required_action_dim,
-                                                                   'enable_action_blocking': enable_action_blocking})
-                                                agents.append(ACAgent(agent_info))
-                                            run_info['agents'] = agents
-                                            if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY, LearningType.COMBINED]:
-                                                for replay_type in chosen_replay_types:
-                                                    run_info['replay_type'] = replay_type
-                                                    for num_replay in replay_buffer_hyper_parameters['num_replay']:
-                                                        run_info['num_replay'] = num_replay
-                                                        for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
-                                                            run_info['buffer_size'] = buffer_size
-                                                            for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
-                                                                run_info['mini_batch_size'] = mini_batch_size
-                                                                agents, run_times, time_steps = self.perform_run(
-                                                                    run_info)
-                                                                self.process_run(run_info, agents, run_times,
-                                                                                 time_steps)
-                                            elif learning_type == LearningType.ONLINE:
-                                                run_info['replay_type'] = BufferType.BASIC
-                                                agents, run_times, time_steps = self.perform_run(
-                                                    run_info)
-                                                self.process_run(run_info, agents, run_times, time_steps)
+        for convert_to_grayscale in chosen_grayscale_flags:
+            run_info['convert_to_grayscale'] = convert_to_grayscale
+            actor_network_args['convert_to_grayscale'] = convert_to_grayscale
+            critic_network_args['convert_to_grayscale'] = convert_to_grayscale
+            for add_pooling in chosen_add_pooling_flags:
+                actor_network_args['add_pooling'] = add_pooling
+                critic_network_args['add_pooling'] = add_pooling
+                for tau in experimental_parameters['taus']:
+                    actor_network_args['tau'] = tau
+                    critic_network_args['tau'] = tau
+                    for optimizer_type in chosen_optimizers:
+                        actor_network_args['optimizer_type'] = optimizer_type
+                        critic_network_args['optimizer_type'] = optimizer_type
+                        if action_blocking_dl_args is not None:
+                            action_blocking_dl_args['optimizer_type'] = optimizer_type
+                        optimizer_args = {}
+                        for learning_rate in optimizer_hyper_parameters['alphas']:
+                            optimizer_args['learning_rate'] = learning_rate
+                            for beta_m in optimizer_hyper_parameters['beta_ms']:
+                                optimizer_args['beta_m'] = beta_m
+                                for beta_v in optimizer_hyper_parameters['beta_vs']:
+                                    optimizer_args['beta_v'] = beta_v
+                                    for epsilon in optimizer_hyper_parameters['epsilons']:
+                                        optimizer_args['epsilon'] = epsilon
+                                        actor_network_args['optimizer_args'] = optimizer_args
+                                        critic_network_args['optimizer_args'] = optimizer_args
+                                        run_info['optimizer_args'] = optimizer_args
+                                        if action_blocking_dl_args is not None:
+                                            action_blocking_dl_args['optimizer_args'] = optimizer_args
+                                        run_info.update({'actor_network_args': actor_network_args,
+                                                         'critic_network_args': critic_network_args,
+                                                         'action_blocking_dl_args': action_blocking_dl_args})
+                                        for enable_action_blocking in chosen_action_blockers:
+                                            run_info['enable_action_blocking'] = enable_action_blocking
+                                            for learning_type in chosen_learning_types:
+                                                run_info['learning_type'] = learning_type
+                                                for enable_noise in chosen_enable_noise_flags:
+                                                    run_info['enable_noise'] = enable_noise
+                                                    for gamma in experimental_parameters['gammas']:
+                                                        run_info['discount_factor'] = gamma
+                                                        agents = []
+                                                        for i, agent_info in enumerate(agents_info_list):
+                                                            agent_info.update({'agent_id': i + 1,
+                                                                               'enable_noise': enable_noise,
+                                                                               'learning_type': learning_type,
+                                                                               'discount_factor': gamma,
+                                                                               'state_dim': environment.required_state_dim,
+                                                                               'action_dim': environment.required_action_dim,
+                                                                               'enable_action_blocking': enable_action_blocking})
+                                                            agents.append(DDPGAgent(agent_info))
+                                                        run_info['agents'] = agents
+                                                        if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY,
+                                                                             LearningType.COMBINED]:
+                                                            for replay_type in chosen_replay_types:
+                                                                run_info['replay_type'] = replay_type
+                                                                for num_replay in replay_buffer_hyper_parameters['num_replay']:
+                                                                    run_info['num_replay'] = num_replay
+                                                                    for buffer_size in replay_buffer_hyper_parameters[
+                                                                        'buffer_size']:
+                                                                        run_info['buffer_size'] = buffer_size
+                                                                        for mini_batch_size in replay_buffer_hyper_parameters[
+                                                                            'mini_batch_size']:
+                                                                            run_info['mini_batch_size'] = mini_batch_size
+                                                                            agents, run_times, time_steps = self.perform_run(
+                                                                                run_info)
+                                                                            self.process_run(run_info, agents, run_times,
+                                                                                             time_steps)
+                                                        elif learning_type == LearningType.ONLINE:
+                                                            run_info['replay_type'] = BufferType.BASIC
+                                                            agents, run_times, time_steps = self.perform_run(
+                                                                run_info)
+                                                            self.process_run(run_info, agents, run_times, time_steps)
+
+        self.hyper_parameters_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'ddpg_run_summary_{0}.csv'.format(self.dt_str))), index=False)
+        self.agents_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'ddpg_agents_data_{0}.csv'.format(self.dt_str))),
+            index=False)
+
+    def perform_experiment_a2c(self, experimental_parameters, specifics):
+        self.current_run_ID = 0
+        self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        self.agents_data = pd.DataFrame(columns=self.agent_cols)
+        self.hyper_parameters_data = pd.DataFrame(columns=self.other_agent_cols)
+        agents_info_list = specifics['agent_info_list']
+        actor_network_args = {}
+        critic_network_args = {}
+        if 'actor_network_args' in specifics and 'critic_network_args' in specifics:
+            actor_network_args = specifics['actor_network_args']
+            critic_network_args = specifics['critic_network_args']
+        elif 'network_args' in specifics:
+            actor_network_args = specifics['network_args']
+            critic_network_args = specifics['network_args']
+        num_episodes = specifics['num_episodes']
+        environment = specifics['environment']
+        random_seed = specifics['seed'] if 'seed' in specifics else 0
+        action_blocking_dl_args = specifics[
+            'action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
+        run_info = {'environment': environment,
+                    'num_episodes': num_episodes,
+                    'random_seed': random_seed}
+        # Process Experimental Parameters
+        chosen_add_pooling_flags = self.create_boolean_list(experimental_parameters, 'add_pooling') if environment.are_states_images else [False]
+        chosen_grayscale_flags = self.create_boolean_list(experimental_parameters, 'convert_to_grayscale') if environment.are_states_images else [False]
+        chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
+        chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
+        chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
+        chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
+        optimizer_hyper_parameters = experimental_parameters[
+            'optimizer_hyper_parameters'] if 'optimizer_hyper_parameters' in experimental_parameters else {}
+        replay_buffer_hyper_parameters = experimental_parameters[
+            'replay_buffer_hyper_parameters'] if 'replay_buffer_hyper_parameters' in experimental_parameters else {}
+        if 'gammas' not in experimental_parameters or len(experimental_parameters['gammas']) == 0:
+            experimental_parameters['gammas'] = [1.0]
+        if 'alphas' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['alphas']) == 0:
+            optimizer_hyper_parameters['alphas'] = [0.001]
+        if 'beta_ms' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['beta_ms']) == 0:
+            optimizer_hyper_parameters['beta_ms'] = [0.9]
+        if 'beta_vs' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['beta_vs']) == 0:
+            optimizer_hyper_parameters['beta_vs'] = [0.99]
+        if 'epsilons' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['epsilons']) == 0:
+            optimizer_hyper_parameters['epsilons'] = [1e-07]
+        for convert_to_grayscale in chosen_grayscale_flags:
+            run_info['convert_to_grayscale'] = convert_to_grayscale
+            actor_network_args['convert_to_grayscale'] = convert_to_grayscale
+            critic_network_args['convert_to_grayscale'] = convert_to_grayscale
+            for add_pooling in chosen_add_pooling_flags:
+                actor_network_args['add_pooling'] = add_pooling
+                critic_network_args['add_pooling'] = add_pooling
+                for optimizer_type in chosen_optimizers:
+                    actor_network_args['optimizer_type'] = optimizer_type
+                    critic_network_args['optimizer_type'] = optimizer_type
+                    if action_blocking_dl_args is not None:
+                        action_blocking_dl_args['optimizer_type'] = optimizer_type
+                    optimizer_args = {}
+                    for learning_rate in optimizer_hyper_parameters['alphas']:
+                        optimizer_args['learning_rate'] = learning_rate
+                        for beta_m in optimizer_hyper_parameters['beta_ms']:
+                            optimizer_args['beta_m'] = beta_m
+                            for beta_v in optimizer_hyper_parameters['beta_vs']:
+                                optimizer_args['beta_v'] = beta_v
+                                for epsilon in optimizer_hyper_parameters['epsilons']:
+                                    optimizer_args['epsilon'] = epsilon
+                                    actor_network_args['optimizer_args'] = optimizer_args
+                                    critic_network_args['optimizer_args'] = optimizer_args
+                                    run_info['optimizer_args'] = optimizer_args
+                                    if action_blocking_dl_args is not None:
+                                        action_blocking_dl_args['optimizer_args'] = optimizer_args
+                                    run_info.update({'actor_network_args': actor_network_args,
+                                                     'critic_network_args': critic_network_args,
+                                                     'action_blocking_dl_args': action_blocking_dl_args})
+                                    for enable_action_blocking in chosen_action_blockers:
+                                        run_info['enable_action_blocking'] = enable_action_blocking
+                                        for learning_type in chosen_learning_types:
+                                            run_info['learning_type'] = learning_type
+                                            for gamma in experimental_parameters['gammas']:
+                                                run_info['discount_factor'] = gamma
+                                                agents = []
+                                                for i, agent_info in enumerate(agents_info_list):
+                                                    agent_info.update({'agent_id': i + 1,
+                                                                       'learning_type': learning_type,
+                                                                       'discount_factor': gamma,
+                                                                       'state_dim': environment.required_state_dim,
+                                                                       'enable_action_blocking': enable_action_blocking})
+                                                    agents.append(A2CAgent(agent_info))
+                                                run_info['agents'] = agents
+                                                if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY,
+                                                                     LearningType.COMBINED]:
+                                                    for replay_type in chosen_replay_types:
+                                                        run_info['replay_type'] = replay_type
+                                                        for num_replay in replay_buffer_hyper_parameters['num_replay']:
+                                                            run_info['num_replay'] = num_replay
+                                                            for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
+                                                                run_info['buffer_size'] = buffer_size
+                                                                for mini_batch_size in replay_buffer_hyper_parameters[
+                                                                    'mini_batch_size']:
+                                                                    run_info['mini_batch_size'] = mini_batch_size
+                                                                    agents, run_times, time_steps = self.perform_run(
+                                                                        run_info)
+                                                                    self.process_run(run_info, agents, run_times,
+                                                                                     time_steps)
+                                                elif learning_type == LearningType.ONLINE:
+                                                    run_info['replay_type'] = BufferType.BASIC
+                                                    agents, run_times, time_steps = self.perform_run(
+                                                        run_info)
+                                                    self.process_run(run_info, agents, run_times, time_steps)
+        self.hyper_parameters_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'a2c_run_summary_{0}.csv'.format(self.dt_str))), index=False)
+        self.agents_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'a2c_agents_data_{0}.csv'.format(self.dt_str))),
+            index=False)
+
+    def perform_experiment_pg(self, experimental_parameters, specifics):
+        self.current_run_ID = 0
+        self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        self.agents_data = pd.DataFrame(columns=self.agent_cols)
+        self.hyper_parameters_data = pd.DataFrame(columns=self.other_agent_cols)
+        agents_info_list = specifics['agent_info_list']
+        actor_network_args = {}
+        critic_network_args = {}
+        if 'actor_network_args' in specifics and 'critic_network_args' in specifics:
+            actor_network_args = specifics['actor_network_args']
+            critic_network_args = specifics['critic_network_args']
+        elif 'network_args' in specifics:
+            actor_network_args = specifics['network_args']
+            critic_network_args = specifics['network_args']
+        num_episodes = specifics['num_episodes']
+        environment = specifics['environment']
+        random_seed = specifics['seed'] if 'seed' in specifics else 0
+        action_blocking_dl_args = specifics[
+            'action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
+        run_info = {'environment': environment,
+                    'num_episodes': num_episodes,
+                    'random_seed': random_seed,
+                    'normal_dist_std_dev': specifics[
+                        'normal_dist_std_dev'] if 'normal_dist_std_dev' in specifics else 1.0}
+        # Process Experimental Parameters
+        chosen_add_pooling_flags = self.create_boolean_list(experimental_parameters, 'add_pooling') if environment.are_states_images else [False]
+        chosen_grayscale_flags = self.create_boolean_list(experimental_parameters, 'convert_to_grayscale') if environment.are_states_images else [False]
+        chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
+        chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
+        chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
+        chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
+        optimizer_hyper_parameters = experimental_parameters[
+            'optimizer_hyper_parameters'] if 'optimizer_hyper_parameters' in experimental_parameters else {}
+        replay_buffer_hyper_parameters = experimental_parameters[
+            'replay_buffer_hyper_parameters'] if 'replay_buffer_hyper_parameters' in experimental_parameters else {}
+        if 'gammas' not in experimental_parameters or len(experimental_parameters['gammas']) == 0:
+            experimental_parameters['gammas'] = [1.0]
+        if 'alphas' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['alphas']) == 0:
+            optimizer_hyper_parameters['alphas'] = [0.001]
+        if 'beta_ms' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['beta_ms']) == 0:
+            optimizer_hyper_parameters['beta_ms'] = [0.9]
+        if 'beta_vs' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['beta_vs']) == 0:
+            optimizer_hyper_parameters['beta_vs'] = [0.99]
+        if 'epsilons' not in optimizer_hyper_parameters or len(optimizer_hyper_parameters['epsilons']) == 0:
+            optimizer_hyper_parameters['epsilons'] = [1e-07]
+        for convert_to_grayscale in chosen_grayscale_flags:
+            run_info['convert_to_grayscale'] = convert_to_grayscale
+            actor_network_args['convert_to_grayscale'] = convert_to_grayscale
+            critic_network_args['convert_to_grayscale'] = convert_to_grayscale
+            for add_pooling in chosen_add_pooling_flags:
+                actor_network_args['add_pooling'] = add_pooling
+                critic_network_args['add_pooling'] = add_pooling
+                for optimizer_type in chosen_optimizers:
+                    actor_network_args['optimizer_type'] = optimizer_type
+                    critic_network_args['optimizer_type'] = optimizer_type
+                    if action_blocking_dl_args is not None:
+                        action_blocking_dl_args['optimizer_type'] = optimizer_type
+                    optimizer_args = {}
+                    for learning_rate in optimizer_hyper_parameters['alphas']:
+                        optimizer_args['learning_rate'] = learning_rate
+                        for beta_m in optimizer_hyper_parameters['beta_ms']:
+                            optimizer_args['beta_m'] = beta_m
+                            for beta_v in optimizer_hyper_parameters['beta_vs']:
+                                optimizer_args['beta_v'] = beta_v
+                                for epsilon in optimizer_hyper_parameters['epsilons']:
+                                    optimizer_args['epsilon'] = epsilon
+                                    actor_network_args['optimizer_args'] = optimizer_args
+                                    critic_network_args['optimizer_args'] = optimizer_args
+                                    run_info['optimizer_args'] = optimizer_args
+                                    if action_blocking_dl_args is not None:
+                                        action_blocking_dl_args['optimizer_args'] = optimizer_args
+                                    run_info.update({'actor_network_args': actor_network_args,
+                                                     'critic_network_args': critic_network_args,
+                                                     'action_blocking_dl_args': action_blocking_dl_args})
+                                    for enable_action_blocking in chosen_action_blockers:
+                                        run_info['enable_action_blocking'] = enable_action_blocking
+                                        for learning_type in chosen_learning_types:
+                                            run_info['learning_type'] = learning_type
+                                            for gamma in experimental_parameters['gammas']:
+                                                run_info['discount_factor'] = gamma
+                                                agents = []
+                                                for i, agent_info in enumerate(agents_info_list):
+                                                    agent_info.update({'agent_id': i + 1,
+                                                                       'learning_type': learning_type,
+                                                                       'discount_factor': gamma,
+                                                                       'action_dim': environment.required_action_dim,
+                                                                       'state_dim': environment.required_state_dim,
+                                                                       'enable_action_blocking': enable_action_blocking})
+                                                    agents.append(PGAgent(agent_info))
+                                                run_info['agents'] = agents
+                                                if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY,
+                                                                     LearningType.COMBINED]:
+                                                    for replay_type in chosen_replay_types:
+                                                        run_info['replay_type'] = replay_type
+                                                        for num_replay in replay_buffer_hyper_parameters['num_replay']:
+                                                            run_info['num_replay'] = num_replay
+                                                            for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
+                                                                run_info['buffer_size'] = buffer_size
+                                                                for mini_batch_size in replay_buffer_hyper_parameters[
+                                                                    'mini_batch_size']:
+                                                                    run_info['mini_batch_size'] = mini_batch_size
+                                                                    agents, run_times, time_steps = self.perform_run(
+                                                                        run_info)
+                                                                    self.process_run(run_info, agents, run_times,
+                                                                                     time_steps)
+                                                elif learning_type == LearningType.ONLINE:
+                                                    run_info['replay_type'] = BufferType.BASIC
+                                                    agents, run_times, time_steps = self.perform_run(
+                                                        run_info)
+                                                    self.process_run(run_info, agents, run_times, time_steps)
+        self.hyper_parameters_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'pg_run_summary_{0}.csv'.format(self.dt_str))), index=False)
+        self.agents_data.to_csv(
+            '{0}'.format(os.path.join(self.output_dir, 'pg_agents_data_{0}.csv'.format(self.dt_str))),
+            index=False)
 
     def perform_run(self, run_info={}):
         agents = run_info['agents']
@@ -491,11 +804,17 @@ class Experiment:
             if type(agent) == TDAgent:
                 action_network_args = run_info['action_network_args']
                 agent.network_init(action_network_args=action_network_args)
-            elif type(agent) == ACAgent:
+            elif type(agent) == DDPGAgent:
                 agent.actor_network_init(run_info['actor_network_args'])
                 agent.critic_network_init(run_info['critic_network_args'])
                 agent.exploration_noise_init(
                     run_info['exploration_noise_args'] if 'exploration_noise_args' in run_info else {})
+            elif type(agent) == A2CAgent:
+                agent.actor_network_init(run_info['actor_network_args'])
+                agent.critic_network_init(run_info['critic_network_args'])
+            elif type(agent) == PGAgent:
+                agent.actor_network_init(run_info['actor_network_args'], run_info['normal_dist_std_dev'])
+                agent.critic_network_init(run_info['critic_network_args'])
 
         if learning_type == LearningType.OFF_POLICY:
             run_info['num_episodes'] = 1
@@ -530,7 +849,8 @@ class Experiment:
                 for agent in environment.agents:
                     agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
                     file_name = join(agent_ml_data_dir,
-                                     'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
+                                     'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"),
+                                                                    episode + 1))
                     if isfile(file_name):
                         file_name = join(file_name, 'duplicate')
                     agent.action_blocking_data.to_csv(
@@ -540,7 +860,8 @@ class Experiment:
                     if not learning_type == LearningType.OFF_POLICY:
                         agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
                         file_name = join(agent_samples_dir,
-                                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"), episode + 1))
+                                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"),
+                                                                        episode + 1))
                         if isfile(file_name):
                             file_name = join(file_name, 'duplicate')
                         agent.experienced_samples.to_csv(file_name,

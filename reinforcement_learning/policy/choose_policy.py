@@ -3,6 +3,7 @@ from .epsilon_greedy import EpsilonGreedy
 from .softmax import Softmax
 from .static import StaticPolicy
 from .thompson_sampling import ThompsonSampling
+from .network import NetworkPolicy
 from .ucb import UCB
 
 
@@ -17,5 +18,7 @@ def choose_policy(policy_name, args={}):
         return UCB(args)
     elif policy_name == 'static':
         return StaticPolicy(args)
+    elif policy_name == 'network':
+        return NetworkPolicy(args)
     else:
         return Policy(args)

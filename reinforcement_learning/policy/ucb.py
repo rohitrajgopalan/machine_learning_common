@@ -8,9 +8,9 @@ class UCB(Policy):
     time_step_counter = 1
     ucb_c = 0.0
 
-    def __init__(self, args=None):
+    def __init__(self, args):
         super().__init__(args)
-        self.N = np.zeros(self.num_actions) + 0.001
+        self.N = np.full(self.num_actions, 0.001)
 
     def generate_confidence(self):
         ln_timestep = np.log(np.full(self.num_actions, self.time_step_counter))
@@ -27,7 +27,7 @@ class UCB(Policy):
     def choose_action_based_from_values(self, action_values):
         return self.argmax(action_values + self.generate_confidence()) if self.num_actions > 1 else 0
 
-    def update(self, action, should_action_be_blocked=False):
+    def update(self, action, should_action_be_blocked=False, **args):
         self.N[action] += 1
         self.time_step_counter += 1
 

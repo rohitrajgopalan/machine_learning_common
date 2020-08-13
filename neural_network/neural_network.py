@@ -14,6 +14,7 @@ class NeuralNetwork:
     enable_normalization = False
     scaler = RobustScaler()
     normalizer = Normalizer()
+    use_gradients = False
 
     def build_model(self):
         self.model = tf.keras.models.Sequential()
@@ -29,8 +30,12 @@ class NeuralNetwork:
 
         if optimizer_type == NetworkOptimizer.ADAMAX:
             self.optimizer = tf.keras.optimizers.Adamax(learning_rate, beta_m, beta_v, epsilon)
-        else:
+        elif optimizer_type == NetworkOptimizer.ADAM:
             self.optimizer = tf.keras.optimizers.Adam(learning_rate, beta_m, beta_v, epsilon)
+        elif optimizer_type == NetworkOptimizer.NADAM:
+            self.optimizer = tf.keras.optimizers.Nadam(learning_rate, beta_m, beta_v, epsilon)
+        else:
+            self.optimizer = tf.keras.optimizers.RMSprop(learning_rate)
 
     def predict(self, inputs):
         if self.enable_scaling:
@@ -39,14 +44,17 @@ class NeuralNetwork:
             inputs = self.normalizer.transform(inputs)
         return self.model.predict(inputs)
 
-    def fit(self, inputs, outputs):
+    def fit(self, inputs, outputs, sample_weight=None):
         if self.enable_scaling:
             inputs = self.scaler.fit_transform(inputs)
         if self.enable_normalization:
             inputs = self.normalizer.fit_transform(inputs)
-        self.model.fit(inputs, outputs, verbose=0)
+        if sample_weight is None:
+            self.model.fit(inputs, outputs, epochs=1, verbose=0)
+        else:
+            self.model.fit(inputs, outputs, sample_weight=sample_weight, epochs=1, verbose=0)
 
-    def parse_dense_layer_info(self, num_inputs, num_outputs, dense_layer_info_list=[], set_input_shape=True):
+    def parse_dense_layer_info(self, num_inputs, num_outputs, dense_layer_info_list=[], input_shape=None):
         for idx, dense_layer_info in enumerate(dense_layer_info_list):
             if idx == len(dense_layer_info_list) - 1:
                 num_units = num_outputs
@@ -67,10 +75,9 @@ class NeuralNetwork:
             if type(bias_initializer) == str:
                 bias_initializer = NetworkInitializationType.get_type_by_name(bias_initializer)
             use_bias = dense_layer_info['use_bias'] if 'use_bias' in dense_layer_info else True
-            input_shape = (num_inputs,) if idx == 0 and set_input_shape else None
             self.network_layers.append(
-                DenseKerasNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
-                                       input_shape))
+                DenseNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
+                                  input_shape if idx == 0 else None))
 
     @staticmethod
     def choose_neural_network(args={}):
@@ -84,6 +91,7 @@ class ObservationNeuralNetwork(NeuralNetwork):
     def __init__(self, args={}):
         self.network_layers = []
         num_inputs = args['num_inputs']
+        input_shape = (num_inputs,)
         num_outputs = args['num_outputs']
         optimizer_type = args['optimizer_type']
         if type(optimizer_type) == str:
@@ -93,7 +101,7 @@ class ObservationNeuralNetwork(NeuralNetwork):
             self.loss_function = args['loss_function']
         self.optimizer_init(optimizer_type, optimizer_args)
         if 'dense_layer_info_list' in args:
-            self.parse_dense_layer_info(num_inputs, num_outputs, args['dense_layer_info_list'])
+            self.parse_dense_layer_info(num_inputs, num_outputs, args['dense_layer_info_list'], input_shape)
         else:
             hidden_layer_sizes = args['hidden_layer_sizes']
             activation_function = args['activation_function']
@@ -111,21 +119,31 @@ class ObservationNeuralNetwork(NeuralNetwork):
                     num_units = int(np.sqrt(num_inputs * num_outputs))
                 else:
                     num_units = hidden_layer_size
-                input_shape = (num_inputs,) if idx == 0 else None
                 self.network_layers.append(
-                    DenseKerasNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
-                                           input_shape))
+                    DenseNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
+                                      input_shape if idx == 0 else None))
             self.network_layers.append(
-                DenseKerasNetworkLayer(num_outputs, activation_function, kernel_initializer, bias_initializer, use_bias))
+                DenseNetworkLayer(num_outputs, activation_function, kernel_initializer, bias_initializer, use_bias))
         self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
         self.enable_normalization = args['enable_normalization'] if 'enable_normalization' in args else False
+        if 'normal_dist_std_dev' in args:
+            normal_dist_std_dev = args['normal_dist_std_dev']
+            self.network_layers.append(NormalDistributionNetworkLayer(normal_dist_std_dev))
         self.build_model()
 
 
 class ImageFrameNeuralNetwork(NeuralNetwork):
+    convert_to_grayscale = False
+    add_pooling = False
+
     def __init__(self, args={}):
         self.network_layers = []
-        num_inputs = args['num_inputs']
+        self.convert_to_grayscale = args['convert_to_grayscale'] if 'convert_to_grayscale' in args else False
+        self.add_pooling = args['add_pooling'] if 'add_pooling' in args else False
+        input_shape = args['input_shape']
+        num_inputs = 1
+        for s in input_shape:
+            num_inputs *= s
         num_outputs = args['num_outputs']
         optimizer_type = args['optimizer_type']
         optimizer_args = args['optimizer_args'] if 'optimizer_args' in args else {}
@@ -135,7 +153,7 @@ class ImageFrameNeuralNetwork(NeuralNetwork):
         if 'loss_function' in args:
             self.loss_function = args['loss_function']
         for idx, conv_layer_info in enumerate(conv_layer_info_list):
-            input_shape = (num_inputs,) if idx == 0 else None
+            padding = conv_layer_info['padding'] if 'padding' in conv_layer_info else 'same'
             num_dimensions = conv_layer_info['num_dimensions']
             num_filters = conv_layer_info['num_filters']
             kernel_size = conv_layer_info['kernel_size']
@@ -155,11 +173,34 @@ class ImageFrameNeuralNetwork(NeuralNetwork):
                 bias_initializer = NetworkInitializationType.get_type_by_name(bias_initializer)
             use_bias = conv_layer_info['use_bias'] if 'use_bias' in args else True
             self.network_layers.append(
-                ConvKerasNetworkLayer(num_dimensions, num_filters, kernel_size, strides, is_transpose, activation_function,
-                                      kernel_initializer, bias_initializer, use_bias, input_shape))
-        self.network_layers.append(KerasFlatten())
+                ConvNetworkLayer(num_dimensions, num_filters, kernel_size, strides, is_transpose, activation_function,
+                                 kernel_initializer, bias_initializer, use_bias, padding, input_shape if idx == 0 else None))
+            if self.add_pooling:
+                if 'pool_size' in conv_layer_info:
+                    pool_size = conv_layer_info['pool_size']
+                else:
+                    if num_dimensions > 1:
+                        pool_size = [2] * num_dimensions
+                        pool_size = tuple(pool_size)
+                    else:
+                        pool_size = 2
+                self.network_layers.append(MaxPoolLayer(num_dimensions, pool_size, strides, padding))
+        self.network_layers.append(FlattenNetworkLayer())
         self.parse_dense_layer_info(num_inputs, num_outputs,
-                                    args['dense_layer_info_list'] if 'dense_layer_info_list' else [], False)
+                                    args['dense_layer_info_list'] if 'dense_layer_info_list' else [])
         self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
         self.enable_normalization = args['enable_normalization'] if 'enable_normalization' in args else False
+        if 'normal_dist_std_dev' in args:
+            normal_dist_std_dev = args['normal_dist_std_dev']
+            self.network_layers.append(NormalDistributionNetworkLayer(normal_dist_std_dev))
         self.build_model()
+
+    def fit(self, inputs, outputs, sample_weight=None):
+        if self.convert_to_grayscale:
+            inputs /= 255.0
+        super().fit(inputs, outputs, sample_weight)
+
+    def predict(self, inputs):
+        if self.convert_to_grayscale:
+            inputs /= 255.0
+        return super().predict(inputs)

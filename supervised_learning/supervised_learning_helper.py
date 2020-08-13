@@ -17,7 +17,7 @@ class SupervisedLearningHelper:
     enable_scaling = False
     enable_normalization = False
 
-    def __init__(self, method_type, files_dir, features, label, filters={}, enable_scaling=False, sheet_name='', enable_normalization=True, header_index=0):
+    def __init__(self, method_type, files_dir, features, label, filters={}, enable_scaling=False, sheet_name='', enable_normalization=True, header_index=0, train_in_batches=False):
         self.method_type = method_type
         self.files_dir = files_dir
         self.features = features
@@ -27,17 +27,33 @@ class SupervisedLearningHelper:
         self.enable_normalization = enable_normalization
         cols = [feature for feature in self.features]
         cols.append(self.label)
-        self.historical_data = load_from_directory(files_dir, cols, filters, concat=True, sheet_name=sheet_name, header_index=header_index)
-        if self.historical_data is None:
-            self.historical_data = pd.DataFrame(columns=cols)
-        else:
+        if train_in_batches:
+            historical_data_dfs = load_from_directory(files_dir, cols, filters, concat=False, sheet_name=sheet_name, header_index=header_index)
+            for historical_data_df in historical_data_dfs:
+                if len(cols) == 1:
+                    cols = historical_data_df.columns
+                    self.features = cols[:len(cols) - 1]
+                    self.label = cols[-1]
+                x = historical_data_df[self.features]
+                y = historical_data_df[self.label]
+                self.fit(x, y)
+            self.historical_data = pd.concat(historical_data_dfs, ignore_index=True)
             if len(cols) == 1:
                 cols = self.historical_data.columns
                 self.features = cols[:len(cols) - 1]
                 self.label = cols[-1]
-            x = self.historical_data[self.features]
-            y = self.historical_data[self.label]
-            self.fit(x, y)
+        else:
+            self.historical_data = load_from_directory(files_dir, cols, filters, concat=True, sheet_name=sheet_name, header_index=header_index)
+            if self.historical_data is None:
+                self.historical_data = pd.DataFrame(columns=cols)
+            else:
+                if len(cols) == 1:
+                    cols = self.historical_data.columns
+                    self.features = cols[:len(cols) - 1]
+                    self.label = cols[-1]
+                x = self.historical_data[self.features]
+                y = self.historical_data[self.label]
+                self.fit(x, y)
 
     def add(self, feature_values_dict, target_value):
         new_data = {self.label: target_value}
@@ -57,13 +73,13 @@ class SupervisedLearningHelper:
 
     @staticmethod
     def choose_helper(method_type, files_dir, features, label, filters={}, enable_scaling=False, dl_args=None,
-                      choosing_method='best', sheet_name='', enable_normalization=True, header_index=0):
+                      choosing_method='best', sheet_name='', enable_normalization=True, header_index=0, train_in_batches=False):
         if dl_args is None:
             return ScikitLearnHelper(choosing_method, method_type, files_dir, features, label, filters, enable_scaling,
-                                     sheet_name, enable_normalization, header_index)
+                                     sheet_name, enable_normalization, header_index, train_in_batches)
         else:
             return DeepLearningHelper(method_type, files_dir, features, label, filters, enable_scaling, sheet_name,
-                                      dl_args, enable_normalization, header_index)
+                                      dl_args, enable_normalization, header_index, train_in_batches)
 
 
 class ScikitLearnHelper(SupervisedLearningHelper):
@@ -72,10 +88,10 @@ class ScikitLearnHelper(SupervisedLearningHelper):
     normalizer = Normalizer()
 
     def __init__(self, choosing_method, method_type, files_dir, features, label, filters={}, enable_scaling=False,
-                 sheet_name='', enable_normalization=True, header_index=0):
+                 sheet_name='', enable_normalization=True, header_index=0, train_in_batches=False):
         self.model = select_method(files_dir, choosing_method, features, label, filters,
                                    method_type, enable_scaling, sheet_name, enable_normalization, header_index)
-        super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name, enable_normalization, header_index)
+        super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name, enable_normalization, header_index, train_in_batches)
 
     def fit(self, x, y):
         if self.enable_scaling:
@@ -95,7 +111,7 @@ class ScikitLearnHelper(SupervisedLearningHelper):
 class DeepLearningHelper(SupervisedLearningHelper):
 
     def __init__(self, method_type, files_dir, features, label, filters={}, enable_scaling=False, sheet_name='',
-                 dl_args={}, enable_normalization=True, header_index=0):
+                 dl_args={}, enable_normalization=True, header_index=0, train_in_batches=False):
         dl_args.update({'num_inputs': len(features), 'num_outputs': 1, 'enable_scaling': enable_scaling, 'enable_normalization': enable_normalization})
         self.model = NeuralNetwork.choose_neural_network(dl_args)
-        super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name, enable_normalization, header_index)
+        super().__init__(method_type, files_dir, features, label, filters, enable_scaling, sheet_name, enable_normalization, header_index, train_in_batches)

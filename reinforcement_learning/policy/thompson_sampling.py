@@ -7,7 +7,7 @@ class ThompsonSampling(Policy):
     alpha = None
     beta = None
 
-    def __init__(self, args=None):
+    def __init__(self, args):
         super().__init__(args)
         self.alpha = np.ones(self.num_actions)
         self.beta = np.ones(self.num_actions)
@@ -27,12 +27,8 @@ class ThompsonSampling(Policy):
     def choose_action_based_from_values(self, action_values):
         return self.argmax(self.generate_theta()) if self.num_actions > 1 else 0
 
-    def update(self, action, should_action_be_blocked=False):
+    def update(self, action, should_action_be_blocked=False, **args):
         r = 0 if should_action_be_blocked else 1
         self.alpha[action] += r
         self.beta[action] += 1 - r
 
-    def add_action(self):
-        super().add_action()
-        self.alpha = np.append(self.alpha, np.ones(1))
-        self.beta = np.append(self.beta, np.ones(1))

@@ -1,5 +1,6 @@
 from os import listdir
 from os.path import join, isfile
+
 import numpy as np
 import pandas as pd
 
@@ -7,7 +8,6 @@ from reinforcement_learning.environment.environment import ActionType
 from reinforcement_learning.replay.choose_buffer import choose_buffer
 from reinforcement_learning.supervised.negative_action_blocker import NegativeActionBlocker
 from .learning_type import LearningType
-from ..replay.prioritized_replay_buffer import PrioritizedReplayBuffer
 
 
 class Agent:
@@ -19,7 +19,9 @@ class Agent:
     action_type = None
     learning_type = None
 
+    flatten_state = False
     state_dim = 0
+    condensed_state_dim = 0
     state_type = None
     initial_state = None
     current_state = None
@@ -38,6 +40,7 @@ class Agent:
     experienced_samples_columns = []
     sample_counter = 0
 
+    num_negative_actions_taken = 0
     enable_action_blocking = False
     action_blocker = None
 
@@ -46,7 +49,7 @@ class Agent:
 
     samples_dir = ''
 
-    def __init__(self, args={}):
+    def __init__(self, args):
         # In an multi-agent setting, data from other agents might come and populate here which will
         # break the code and give unexpected results.
         # So a pre-clean-up is necessary
@@ -57,13 +60,13 @@ class Agent:
         if len(self.experienced_samples_columns) > 0:
             self.experienced_samples_columns = []
 
+        self.num_negative_actions_taken = 0
+
         self.did_block_action = False
         actions_csv_file = ''
         actions_npy_file = ''
         actions_dir = ''
 
-        if args is None:
-            args = {}
         for key in args:
             if key == 'actions_csv_file':
                 actions_csv_file = args[key]
@@ -74,16 +77,31 @@ class Agent:
             else:
                 setattr(self, key, args[key])
 
+        if type(self.state_dim) == int:
+            state_dim_list = [self.state_dim]
+        else:
+            state_dim_list = list(self.state_dim)
+
+        self.flatten_state = len(state_dim_list) > 1
+
+        if self.flatten_state:
+            self.condensed_state_dim = 1
+            for s in state_dim_list:
+                self.condensed_state_dim *= s
+        else:
+            self.condensed_state_dim = state_dim_list[0]
+
         self.n_update_steps = 0
+
         self.current_state = self.initial_state
         self.add_state(self.current_state)
 
-        if self.state_dim == 1:
+        if self.condensed_state_dim == 1:
             self.action_blocking_data_columns.append('STATE')
             self.experienced_samples_columns.append('STATE')
             self.experienced_samples_columns.append('NEXT_STATE')
         else:
-            for i in range(1, self.state_dim + 1):
+            for i in range(1, self.condensed_state_dim + 1):
                 self.action_blocking_data_columns.append('STATE_VAR{0}'.format(i))
                 self.experienced_samples_columns.append('STATE_VAR{0}'.format(i))
                 self.experienced_samples_columns.append('NEXT_STATE_VAR{0}'.format(i))
@@ -119,16 +137,15 @@ class Agent:
             pass
         self.action_blocker = NegativeActionBlocker(csv_dir, self.state_dim, self.action_dim, dl_args)
 
-    def buffer_init(self, buffer_type, num_replay, size, minibatch_size, random_seed=None):
-        self.replay_buffer = choose_buffer(buffer_type, size, minibatch_size, random_seed)
+    def buffer_init(self, buffer_type, num_replay, size, mini_batch_size, random_seed=None):
+        self.replay_buffer = choose_buffer(buffer_type, size, mini_batch_size, random_seed)
         self.num_replay = num_replay
 
     def add_state(self, s):
         if s is None:
             pass
-        if not type(s) == int:
-            if type(s) == list:
-                s = tuple(s)
+        if self.state_type == list:
+            s = tuple(s)
         if len(self.experienced_states) or s not in self.experienced_states:
             self.experienced_states.append(s)
 
@@ -263,10 +280,10 @@ class Agent:
         else:
             r = r1
         if self.algorithm is not None:
-            self.algorithm.policy.update(self.initial_action, should_action_be_blocked)
+            self.algorithm.policy.update(self.initial_action, should_action_be_blocked, state=self.current_state,
+                                         td_error=self.get_immediate_target_error(r))
 
         self.add_to_supervised_learning(should_action_be_blocked)
-
         self.add_state(self.current_state)
         self.add_state(self.next_state)
 
@@ -276,10 +293,8 @@ class Agent:
         self.post_step_process(r)
 
     def post_step_process(self, r):
-        if type(self.replay_buffer) == PrioritizedReplayBuffer:
-            self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active), target_error=self.get_target_error(r))
-        else:
-            self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active))
+        self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active),
+                                  target_error=self.get_immediate_target_error(r))
         if self.replay_buffer.size() >= self.replay_buffer.minibatch_size:
             self.n_update_steps += 1
             for _ in range(self.num_replay):
@@ -290,17 +305,20 @@ class Agent:
 
     def add_to_experienced_samples(self, r):
         new_data = {}
-        if self.state_dim == 1:
+        if self.condensed_state_dim == 1:
             new_data.update({'STATE': self.current_state, 'NEXT_STATE': self.next_state})
         else:
-            for i in range(self.state_dim):
-                state_val = self.current_state[i]
-                next_state_val = self.next_state[i]
+            current_state = self.current_state.flatten() if self.flatten_state else self.current_state
+            next_state = self.next_state.flatten() if self.flatten_state else self.next_state
+            for i in range(self.condensed_state_dim):
+                state_val = current_state[i]
+                next_state_val = next_state[i]
                 if type(state_val) == bool:
                     state_val = int(state_val)
                 if type(next_state_val) == bool:
                     next_state_val = int(next_state_val)
-                new_data.update({'STATE_VAR{0}'.format(i + 1): state_val, 'NEXT_STATE_VAR{0}'.format(i+1): next_state_val})
+                new_data.update(
+                    {'STATE_VAR{0}'.format(i + 1): state_val, 'NEXT_STATE_VAR{0}'.format(i + 1): next_state_val})
         if self.action_type in [int, float, str]:
             action = self.actions[self.initial_action]
             new_data.update({'INITIAL_ACTION': self.initial_action if self.action_type == str else action})
@@ -312,7 +330,7 @@ class Agent:
             else:
                 for i in range(self.action_dim):
                     new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
-        new_data.update({'REWARD': r, 'DONE?': 1-int(self.active)})
+        new_data.update({'REWARD': r, 'DONE?': 1 - int(self.active)})
         try:
             self.experienced_samples = self.experienced_samples.append(new_data, ignore_index=True)
         except MemoryError:
@@ -322,15 +340,19 @@ class Agent:
             print('New Row details: {0}'.format(new_data))
 
     def add_to_supervised_learning(self, should_action_be_blocked):
-        blocked_boolean = 1 if should_action_be_blocked else 0
+        blocked_boolean = 0
+        if should_action_be_blocked:
+            blocked_boolean = 1
+            self.num_negative_actions_taken += 1
+        current_state = self.current_state.flatten() if self.flatten_state else self.current_state
         if self.enable_action_blocking:
-            self.action_blocker.add(self.current_state, self.initial_action, blocked_boolean)
+            self.action_blocker.add(current_state, self.initial_action, blocked_boolean)
         new_data = {}
-        if self.state_dim == 1:
-            new_data.update({'STATE': self.current_state})
+        if self.condensed_state_dim == 1:
+            new_data.update({'STATE': current_state})
         else:
-            for i in range(self.state_dim):
-                state_val = self.current_state[i]
+            for i in range(self.condensed_state_dim):
+                state_val = current_state[i]
                 if type(state_val) == bool:
                     state_val = int(state_val)
                 new_data.update({'STATE_VAR{0}'.format(i + 1): state_val})
@@ -354,7 +376,7 @@ class Agent:
         except ValueError:
             print('Duplicate Row issues as we tried to add a new row for action blocking')
             print('New Row details: {0}'.format(new_data))
-    
+
     def optimize_network(self, experiences):
         pass
 
@@ -367,17 +389,19 @@ class Agent:
             samples = pd.read_csv(file, engine='python', skip_blank_lines=True)
             samples = samples.dropna()
             for index, row in samples.iterrows():
-                if self.state_dim == 1:
+                if self.condensed_state_dim == 1:
                     self.current_state = float(row['STATE']) if '.' in row['STATE'] else int(row['STATE'])
                     self.next_state = float(row['NEXT_STATE']) if '.' in row['NEXT_STATE'] else int(row['NEXT_STATE'])
                 else:
                     self.current_state = []
                     self.next_state = []
-                    for i in range(1, self.state_dim + 1):
+                    for i in range(1, self.condensed_state_dim + 1):
                         state_col = 'STATE_VAR{0}'.format(i)
                         next_state_col = 'NEXT_{0}'.format(state_col)
-                        self.current_state.append(float(row[state_col]) if '.' in row[state_col] else int(row[state_col]))
-                        self.next_state.append(float(row[next_state_col]) if '.' in row[next_state_col] else int(row[next_state_col]))
+                        self.current_state.append(
+                            float(row[state_col]) if '.' in row[state_col] else int(row[state_col]))
+                        self.next_state.append(
+                            float(row[next_state_col]) if '.' in row[next_state_col] else int(row[next_state_col]))
                     if self.state_type == tuple:
                         self.current_state = tuple(self.current_state)
                         self.next_state = tuple(self.next_state)
@@ -406,12 +430,15 @@ class Agent:
                 a_index, does_exist = self.does_action_already_exist(action)
                 if not does_exist:
                     self.actions.append(action)
-                    self.initial_action = len(self.actions)-1
+                    self.initial_action = len(self.actions) - 1
                 else:
                     self.initial_action = a_index
                 reward = float(row['REWARD'])
                 self.active = int(row['DONE?']) == 0
                 self.post_step_process(reward)
 
-    def get_target_error(self, reward):
+    def get_target_error(self, s, a, s_, r, active):
         return 0
+
+    def get_immediate_target_error(self, r):
+        return self.get_target_error(self.current_state, self.initial_action, self.next_state, r, self.active)

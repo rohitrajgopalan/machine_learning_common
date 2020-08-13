@@ -6,7 +6,10 @@ class NetworkInitializationType(enum.Enum):
     HE_UNIFORM = 2,
     ORTHOGONAL = 3,
     ZEROS = 4,
-    ONES = 5
+    ONES = 5,
+    LECUN_NORMAL = 6,
+    LECUN_UNIFORM = 7,
+    NORMAL = 8
 
     @staticmethod
     def all():
@@ -14,7 +17,10 @@ class NetworkInitializationType(enum.Enum):
                 NetworkInitializationType.HE_UNIFORM,
                 NetworkInitializationType.ORTHOGONAL,
                 NetworkInitializationType.ZEROS,
-                NetworkInitializationType.ONES]
+                NetworkInitializationType.ONES,
+                NetworkInitializationType.LECUN_NORMAL,
+                NetworkInitializationType.LECUN_UNIFORM,
+                NetworkInitializationType.NORMAL]
 
     @staticmethod
     def get_type_by_name(name):
@@ -57,11 +63,13 @@ class NetworkActivationFunction(enum.Enum):
 
 class NetworkOptimizer(enum.Enum):
     ADAM = 1,
-    ADAMAX = 2
+    ADAMAX = 2,
+    NADAM = 3,
+    RMSPROP = 4,
 
     @staticmethod
     def all():
-        return [NetworkOptimizer.ADAM, NetworkOptimizer.ADAMAX]
+        return [NetworkOptimizer.ADAM, NetworkOptimizer.ADAMAX, NetworkOptimizer.RMSPROP, NetworkOptimizer.NADAM]
 
     @staticmethod
     def get_type_by_name(name):
@@ -70,18 +78,3 @@ class NetworkOptimizer(enum.Enum):
                 return optimizer_type
         return None
 
-
-class LibraryType(enum.Enum):
-    TF_KERAS = 1,
-    PYTORCH = 2
-
-    @staticmethod
-    def all():
-        return [LibraryType.TF_KERAS, LibraryType.PYTORCH]
-
-    @staticmethod
-    def get_type_by_name(name):
-        for library_type in LibraryType.all():
-            if library_type.name.lower() == name.lower():
-                return library_type
-        return None

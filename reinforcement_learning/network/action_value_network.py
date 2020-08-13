@@ -5,14 +5,25 @@ from neural_network.neural_network import NeuralNetwork
 
 class ActionValueNetwork:
     num_actions = 0
-    neural_network = None
+    model_network = None
+    target_network = None
+    is_double = False
 
-    def __init__(self, args={}):
+    def __init__(self, args={}, is_double=False):
         args.update({'loss_function': 'mse'})
-        self.neural_network = NeuralNetwork.choose_neural_network(args)
+        self.model_network = NeuralNetwork.choose_neural_network(args)
         self.num_actions = args['num_outputs']
+        self.is_double = is_double
+        if self.is_double:
+            self.target_network = NeuralNetwork.choose_neural_network(args)
 
     def get_action_values(self, s):
+        return self.get_action_values_with_network(s, self.model_network)
+
+    def get_target_action_values(self, s):
+        return self.get_action_values_with_network(s, self.target_network)
+
+    def get_action_values_with_network(self, s, network):
         if s is None:
             return np.zeros((1, self.num_actions))
 
@@ -24,7 +35,7 @@ class ActionValueNetwork:
             The action-values (Numpy array) calculated using the network's weights.
         """
         try:
-            initial_prediction = self.neural_network.predict(s)
+            initial_prediction = network.predict(s)
             if initial_prediction.shape[1] == 0:
                 return np.zeros((1, self.num_actions))
             else:
@@ -32,16 +43,9 @@ class ActionValueNetwork:
         except ValueError as e:
             return np.zeros((1, self.num_actions))
 
-    def add_action(self):
-        self.num_actions += 1
-        self.neural_network.network_layers[len(self.neural_network.network_layers) - 1].add_unit()
-        self.neural_network.build_model()
-
     def update_network(self, inputs, outputs):
-        self.neural_network.fit(inputs, outputs)
+        self.model_network.fit(inputs, outputs)
 
-    def get_weights(self):
-        return self.neural_network.model.get_weights()
-
-    def set_weights(self, weights):
-        self.neural_network.model.set_weights(weights)
+    def update_target_weights(self):
+        if self.is_double:
+            self.target_network.model.set_weights(self.model_network.model.get_weights())
