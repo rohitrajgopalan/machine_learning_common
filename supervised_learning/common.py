@@ -6,17 +6,16 @@ from os.path import join, isfile
 
 import numpy as np
 import pandas as pd
-from pandas.api.types import is_numeric_dtype
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression, ElasticNet
 from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.preprocessing import RobustScaler, Normalizer
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.neural_network import MLPRegressor, MLPClassifier
 
 warnings.filterwarnings('ignore')
 classifiers = {'Logistic Regression': LogisticRegression(),
@@ -52,7 +51,6 @@ class MethodType(enum.Enum):
     Regression = 2
 
 
-# scaler = MinMaxScaler()
 scaler = RobustScaler()
 normalizer = Normalizer()
 
@@ -101,53 +99,33 @@ def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_
     return train_x, train_y, test_x, test_y
 
 
-def load_from_directory(files_dir, cols=[], filters={}, concat=False, sheet_name='', header_index=0):
+def load_from_directory(files_dir, cols=[], concat=False, sheet_name='', header_index=0, cols_to_types={}):
     data_files = [join(files_dir, f) for f in listdir(files_dir) if
                   isfile(join(files_dir, f))]
     df_from_each_file = []
     for f in data_files:
         df = None
         if f.endswith(".csv"):
-            df = pd.read_csv(f, engine='python', usecols=cols, skip_blank_lines=True)
-        elif f.endswith(".json"):
-            df = pd.read_json(f)
+            if not bool(cols_to_types):
+                df = pd.read_csv(f, usecols=cols, dtype=cols_to_types)
+            else:
+                df = pd.read_csv(f, usecols=cols)
         elif f.endswith(".xls") or f.endswith(".xlsx"):
-            if len(sheet_name) > 0:
-                df = pd.read_excel(f, sheet_name=sheet_name, header=header_index)
+            if not bool(cols_to_types):
+                if len(sheet_name) > 0:
+                    df = pd.read_excel(f, sheet_name=sheet_name, header=header_index, usecols=cols, dtype=cols_to_types)
+                else:
+                    df = pd.read_excel(f, usecols=cols, dtype=cols_to_types)
             else:
-                df = pd.read_excel(f)
-        df = df.dropna()
-        df.reset_index(drop=True)
-        if df is not None and len(df.index) > 0:
-            df_from_each_file.append(df)
-    filtered_dfs = []
-    for df in df_from_each_file:
-        if len(cols) > 0:
-            label = cols[-1]
-        else:
-            label = df.columns[-1]
-        if not bool(filters):
-            for key in filters:
-                df = df.loc[df[key] == filters[key]]
-                if df is None:
-                    break
-        if df is None or len(df.index) == 0:
+                if len(sheet_name) > 0:
+                    df = pd.read_excel(f, sheet_name=sheet_name, header=header_index, usecols=cols)
+                else:
+                    df = pd.read_excel(f, usecols=cols)
+        if df is None:
             continue
-        if not is_numeric_dtype(df[label]):
-            unique_labels = list(np.unique(df[label]))
-            if unique_labels == ['True', 'False']:
-                replace_dict = {'True': 1, 'False': 0}
-            else:
-                replace_dict = {}
-                for i, unique_label in enumerate(unique_labels):
-                    replace_dict.update({unique_label: i + 1})
-            df.replace({label: replace_dict})
-        if len(cols) > 0:
-            df = df[cols]
-        if df is not None and len(df.index) > 0:
-            filtered_dfs.append(df)
+        df_from_each_file.append(df)
 
-    return pd.concat(filtered_dfs, ignore_index=True) if concat else filtered_dfs
+    return pd.concat(df_from_each_file, ignore_index=True) if concat else df_from_each_file
 
 
 def perform_experiment_on_data(df_from_each_file, method_type, enable_scaling=True, enable_normalization=True):
@@ -212,60 +190,17 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
     return metrics_to_data, test_sizes
 
 
-def select_best_method(csv_dir, best_type='', metric='Accuracy', features=[], label='', filters={},
-                       method_type=MethodType.Classification, enable_scaling=True, sheet_name='',
-                       enable_normalization=True, header_index=0):
-    cols = features
-    cols.append(label)
-    cols = list(np.unique(cols))
-    df_from_each_file = load_from_directory(csv_dir, cols, filters, sheet_name=sheet_name, header_index=header_index)
-    methods = classifiers if method_type == MethodType.Classification else regressors
-    method_names = list(methods.keys())
-    results, test_sizes = perform_experiment_on_data(df_from_each_file, method_type, enable_scaling,
-                                                     enable_normalization)
-    chosen_metrics = metrics_regressors if method_type == MethodType.Regression else metrics_classifiers
-    metrics_to_data, _ = shape_experimental_data_for_plotting(results, test_sizes, methods, chosen_metrics)
-    if metric not in metrics_to_data:
-        return None
-    else:
-        dataset = metrics_to_data[metric]
-        metric_values = []
-        for i in range(len(method_names)):
-            if best_type == 'average':
-                metric_values.append(np.mean(dataset[i]))
-            else:
-                if metric.endswith('time') or metric.lower() == 'mean squared error':
-                    metric_values.append(np.min(dataset[i]))
-                else:
-                    metric_values.append(np.max(dataset[i]))
-        sort_index = np.argsort(metric_values)
-        best_method = methods[method_names[sort_index[-1]]]
-        return best_method
-
-
-def select_method(csv_dir, choosing_method='best', features=[], label='', filters={},
-                  method_type=MethodType.Classification, enable_scaling=True, sheet_name='', enable_normalization=True, header_index=0):
+def select_method(choosing_method, method_type):
     chosen_method = None
-    metric = 'Accuracy' if method_type == MethodType.Classification else 'Mean Squared Error'
     methods = classifiers if method_type == MethodType.Classification else regressors
-    cols = [feature for feature in features]
-    cols.append(label)
-    training_data = load_from_directory(csv_dir, cols, filters, True, sheet_name, header_index)
-    if choosing_method == 'best':
-        chosen_method = select_best_method(csv_dir, features=features, label=label, filters=filters,
-                                           method_type=method_type, enable_scaling=enable_scaling, metric=metric,
-                                           sheet_name=sheet_name, enable_normalization=enable_normalization, header_index=header_index)
-    elif choosing_method == 'random':
+
+    if choosing_method == 'random':
         chosen_method = randomly_select_method(methods)
     else:
         for method_name in methods.keys():
             if method_name.lower() == choosing_method.lower():
                 chosen_method = methods[method_name]
                 break
-    if type(chosen_method) == MLPRegressor:
-        chosen_method = MLPRegressor(batch_size=len(training_data.index))
-    elif type(chosen_method) == MLPClassifier:
-        chosen_method = MLPClassifier(batch_size=len(training_data.index))
     return chosen_method
 
 

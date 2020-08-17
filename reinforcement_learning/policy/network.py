@@ -55,7 +55,7 @@ class NetworkPolicy(Policy):
                 if 'convert_to_grayscale' not in network_args:
                     network_args.update({'convert_to_grayscale': convert_to_grayscale})
             network_args.update({'num_outputs': self.num_actions})
-        self.network = NeuralNetwork.choose_neural_network(network_args)
+        self.network = NeuralNetwork(network_args)
 
     def derive(self, state, network, use_target=False):
         prediction = self.network.predict(np.array([state]))

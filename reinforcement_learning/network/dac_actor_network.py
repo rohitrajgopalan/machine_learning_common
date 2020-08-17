@@ -1,14 +1,15 @@
-from neural_network.neural_network import NeuralNetwork
 import numpy as np
 
+from neural_network.neural_network import NeuralNetwork
 
-class A2CActorNetwork:
+
+class DACActorNetwork:
     network = None
     num_actions = 0
 
     def __init__(self, network_args):
         network_args.update({'loss_function': 'categorical_crossentropy'})
-        self.network = NeuralNetwork.choose_neural_network(network_args)
+        self.network = NeuralNetwork(network_args)
         self.num_actions = network_args['num_outputs']
 
     def action(self, state):

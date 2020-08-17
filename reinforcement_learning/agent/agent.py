@@ -157,7 +157,7 @@ class Agent:
         self.active = True
 
     def load_actions_from_csv(self, csv_file):
-        df = pd.read_csv(csv_file, engine='python', skip_blank_lines=True)
+        df = pd.read_csv(csv_file)
         for index, row in df.iterrows():
             if 'TYPE' in df.columns:
                 action_type = row['TYPE']

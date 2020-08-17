@@ -1,10 +1,10 @@
 from reinforcement_learning.agent.agent import Agent
-from reinforcement_learning.network.pg_actor_network import PGActorNetwork
-from reinforcement_learning.network.pg_critic_network import PGCriticNetwork
+from reinforcement_learning.network.cac_actor_network import CACActorNetwork
+from reinforcement_learning.network.cac_critic_network import CACCriticNetwork
 import numpy as np
 
 
-class PGAgent(Agent):
+class CACAgent(Agent):
     actor_network = None
     critic_network = None
     discount_factor = 0
@@ -17,12 +17,12 @@ class PGAgent(Agent):
     def actor_network_init(self, actor_network_args, normal_dist_std_dev):
         actor_network_args.update({'num_outputs': self.action_dim,
                                    'num_inputs' if type(self.state_dim) == int else 'input_shape': self.state_dim})
-        self.actor_network = PGActorNetwork(actor_network_args, normal_dist_std_dev)
+        self.actor_network = CACActorNetwork(actor_network_args, normal_dist_std_dev)
 
     def critic_network_init(self, critic_network_args):
         critic_network_args.update({'num_outputs': 1,
                                     'num_inputs' if type(self.state_dim) == int else 'input_shape': self.state_dim})
-        self.critic_network = PGCriticNetwork(critic_network_args)
+        self.critic_network = CACCriticNetwork(critic_network_args)
 
     def assign_initial_action(self):
         action = self.actor_network.action(self.current_state)
@@ -30,7 +30,7 @@ class PGAgent(Agent):
         self.initial_action = self.add_action(action)
 
     def optimize_network(self, experiences):
-        if self.flatten_state:
+        if type(self.state_dim) == tuple:
             state_shape = [len(experiences)]
             for s in self.state_dim:
                 state_shape.append(s)

@@ -3,7 +3,7 @@ import numpy as np
 from neural_network.neural_network import NeuralNetwork
 
 
-class PGActorNetwork:
+class CACActorNetwork:
     network = None
     action_dim = 0
     std_dev = 0.0
@@ -12,12 +12,13 @@ class PGActorNetwork:
         self.action_dim = args['num_outputs']
         assert type(normal_dist_std_dev) == float or (
                 type(normal_dist_std_dev) == np.ndarray and normal_dist_std_dev.shape[0] == self.action_dim)
-        args.update({'loss_function': 'categorical_crossentropy',
-                     'normal_dist_std_dev': normal_dist_std_dev})
-        self.network = NeuralNetwork.choose_neural_network(args)
+        args.update({'loss_function': 'categorical_crossentropy'})
+        self.std_dev = normal_dist_std_dev
+        self.network = NeuralNetwork(args)
 
     def actions(self, states):
-        return self.network.predict(states)
+        predictions = self.network.predict(states)
+        return np.random.normal(loc=predictions, scale=self.std_dev)
 
     def action(self, state):
         if state is None:

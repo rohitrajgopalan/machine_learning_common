@@ -1,7 +1,9 @@
 import math
+
 import numpy as np
 import tensorflow as tf
-from neural_network.network_types import NetworkOptimizer
+
+from neural_network.network_types import NetworkOptimizer, NetworkActivationFunction
 
 LAYER1_SIZE = 400
 LAYER2_SIZE = 300
@@ -52,11 +54,15 @@ class DDPGCriticNetwork:
                 kernel_size = conv_layer_info['kernel_size']
                 strides = conv_layer_info['strides'] if 'strides' in conv_layer_info else (1, 1)
                 padding = conv_layer_info['padding'].lower() if 'padding' in conv_layer_info else 'same'
-                state_out = tf.keras.layers.Conv2D(filters=num_filters, kernel_size=kernel_size, strides=strides, padding=padding, activation='relu')(state_out)
+                activation_function = conv_layer_info['activation_function'] if 'activation_function' in conv_layer_info else 'relu'
+                if type(activation_function) == NetworkActivationFunction:
+                    activation_function = activation_function.name.lower()
+                state_out = tf.keras.layers.Conv2D(filters=num_filters, kernel_size=kernel_size, strides=strides, padding=padding)(state_out)
                 if add_pooling:
                     pool_size = conv_layer_info['pool_size'] if 'pool_size' in conv_layer_info else (2, 2)
                     state_out = tf.keras.layers.MaxPool2D(pool_size=pool_size, strides=conv_layer_info['strides'] if 'strides' in conv_layer_info else None)(state_out)
                 state_out = tf.keras.layers.BatchNormalization()(state_out)
+                state_out = tf.keras.layers.Activation(activation=activation_function)(state_out)
             state_out = tf.keras.layers.Flatten()(state_out)
 
         for layer_size in state_layer_sizes:
@@ -74,21 +80,22 @@ class DDPGCriticNetwork:
             out = tf.keras.layers.Dense(layer_size, activation='relu')(out)
             out = tf.keras.layers.BatchNormalization()(out)
         outputs = tf.keras.layers.Dense(1)(out)
-
         self.model = tf.keras.Model([state_input, action_input], outputs)
         self.target = tf.keras.Model([state_input, action_input], outputs)
-
         self.target.set_weights(self.model.get_weights())
 
     def update_target(self):
         new_weights = []
-        target_variables = self.target.weights
-        for i, variable in enumerate(self.model.weights):
+        target_variables = self.target.get_weights()
+        for i, variable in enumerate(self.model.get_weights()):
             new_weights.append(variable * self.tau * target_variables[i] * (1 - self.tau))
         self.target.set_weights(new_weights)
 
     def q_values(self, states, actions):
         return self.model([states, actions])
+
+    def target_qs(self, states, actions):
+        return self.target([states, actions])
 
     def q_value(self, state, action):
         if state is None or action is None:
@@ -99,9 +106,6 @@ class DDPGCriticNetwork:
             except:
                 return 0
 
-    def target_qs(self, states, actions):
-        return self.target([states, actions])
-
     def target_q(self, state, action):
         if state is None or action is None:
             return 0
@@ -111,5 +115,6 @@ class DDPGCriticNetwork:
             except:
                 return 0
 
-    def apply_gradients(self, gradients):
+    def generate_and_apply_gradients(self, critic_loss, tape=tf.GradientTape()):
+        gradients = tape.gradient(critic_loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))

@@ -50,7 +50,7 @@ class DDPGAgent(Agent):
             self.exploration_noise.reset()
 
     def optimize_network(self, experiences):
-        if self.flatten_state:
+        if type(self.state_dim) == tuple:
             state_shape = [len(experiences)]
             for s in self.state_dim:
                 state_shape.append(s)
@@ -85,16 +85,14 @@ class DDPGAgent(Agent):
             critic_value = self.critic_network.q_values(states, actions)
             critic_loss = tf.math.reduce_mean(tf.math.square(y - critic_value))
 
-        critic_gradients = tape.gradient(critic_loss, self.critic_network.model.trainable_variables)
-        self.critic_network.apply_gradients(critic_gradients)
+        self.critic_network.generate_and_apply_gradients(critic_loss, tape)
 
         with tf.GradientTape() as tape:
             actions = self.actor_network.actions(states)
             critic_value = self.critic_network.q_values(states, actions)
             actor_loss = -tf.math.reduce_mean(critic_value)
 
-        actor_gradients = tape.gradient(actor_loss, self.actor_network.model.trainable_variables)
-        self.actor_network.apply_gradients(actor_gradients)
+        self.actor_network.generate_and_apply_gradients(actor_loss, tape)
         self.actor_network.update_target()
         self.critic_network.update_target()
 

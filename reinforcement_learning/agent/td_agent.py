@@ -25,7 +25,7 @@ class TDAgent(Agent):
 
     def optimize_network(self, experiences):
         q_target = np.zeros((len(experiences), len(self.actions)))
-        if self.flatten_state:
+        if type(self.state_dim) == tuple:
             state_shape = [len(experiences)]
             for s in self.state_dim:
                 state_shape.append(s)

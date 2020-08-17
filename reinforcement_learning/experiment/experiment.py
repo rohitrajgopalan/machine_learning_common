@@ -9,34 +9,99 @@ import pandas as pd
 
 from neural_network.network_types import NetworkOptimizer
 from reinforcement_learning.agent.ddpg_agent import DDPGAgent
-from reinforcement_learning.agent.pg_agent import PGAgent
+from reinforcement_learning.agent.cac_agent import CACAgent
 from reinforcement_learning.agent.td_agent import TDAgent
-from reinforcement_learning.agent.a2c_agent import A2CAgent
+from reinforcement_learning.agent.dac_agent import DACAgent
 from reinforcement_learning.agent.learning_type import LearningType
 from reinforcement_learning.algorithm.algorithm import Algorithm, AlgorithmName
 from reinforcement_learning.policy.choose_policy import choose_policy
 from reinforcement_learning.replay.buffer_type import BufferType
 
 
+def create_boolean_list(chosen_types, key):
+    chosen_options = []
+    if key in chosen_types:
+        if chosen_types[key].lower() == 'yes':
+            chosen_options = [True]
+        elif chosen_types[key].lower() == 'no':
+            chosen_options = [False]
+        elif chosen_types[key].lower() == 'both':
+            chosen_options = [False, True]
+    else:
+        chosen_options = [False, True]
+    return chosen_options
+
+
+def choose_from_options(all_possible_options, chosen_types, key):
+    chosen_options = []
+
+    if key in chosen_types:
+        if type(chosen_types[key]) == str:
+            if chosen_types[key].lower() == 'all':
+                chosen_options = all_possible_options
+            elif chosen_types[key].lower() in all_possible_options:
+                chosen_options = [chosen_types[key]]
+        elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
+            chosen_options = chosen_types[key]
+    else:
+        chosen_options = all_possible_options
+
+    return chosen_options
+
+
+def choose_from_enums(all_possible_options, chosen_types, key):
+    chosen_options = []
+
+    if key in chosen_types:
+        if type(chosen_types[key]) == str:
+            if chosen_types[key] == 'all':
+                chosen_options = all_possible_options
+            else:
+                for some_type in all_possible_options:
+                    if some_type.name.lower() == chosen_types[key].lower():
+                        chosen_options = [some_type]
+                        break
+        elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
+            chosen_options = []
+            for item in chosen_types[key]:
+                for some_type in all_possible_options:
+                    if (type(item) == str and some_type.name.lower() == item.lower()) or type(
+                            item) == enum.Enum and item == some_type:
+                        chosen_options.append(some_type)
+                        break
+        elif chosen_types[key] in all_possible_options:
+            chosen_options = [chosen_types[key]]
+    else:
+        chosen_options = all_possible_options
+
+    return chosen_options
+
+
 class Experiment:
     hyper_parameters_data = None
-    td_agent_cols = ['RUN_ID', 'ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'GAMMA', 'CONVERT_IMAGES_TO_GRAYSCALE', 'ADD_POOLING_FOR_IMAGES', 'ENABLE_DOUBLE_LEARNING',
+    td_agent_cols = ['RUN_ID', 'ALGORITHM', 'POLICY', 'HYPER_PARAMETER', 'GAMMA', 'CONVERT_IMAGES_TO_GRAYSCALE',
+                     'ADD_POOLING_FOR_IMAGES', 'ENABLE_DOUBLE_LEARNING',
                      'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
                      'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
                      'BUFFER_SIZE',
                      'MINI_BATCH_SIZE',
-                     'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
-    ddpg_agent_cols = ['RUN_ID', 'CONVERT_IMAGES_TO_GRAYSCALE', 'ADD_POOLING_FOR_IMAGES', 'GAMMA', 'TAU', 'ENABLE_NOISE', 'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
+                     'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME', 'NUM_COMPLETED', 'NUM_OUT_OF_TIME']
+    ddpg_agent_cols = ['RUN_ID', 'CONVERT_IMAGES_TO_GRAYSCALE', 'ADD_POOLING_FOR_IMAGES', 'GAMMA', 'TAU',
+                       'ENABLE_NOISE', 'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
                        'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
                        'BUFFER_SIZE',
                        'MINI_BATCH_SIZE',
-                       'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
-    other_agent_cols = ['RUN_ID', 'CONVERT_IMAGES_TO_GRAYSCALE', 'ADD_POOLING_FOR_IMAGES', 'GAMMA', 'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
+                       'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME', 'NUM_COMPLETED',
+                       'NUM_OUT_OF_TIME']
+    other_agent_cols = ['RUN_ID', 'CONVERT_IMAGES_TO_GRAYSCALE', 'ADD_POOLING_FOR_IMAGES', 'GAMMA',
+                        'ENABLE_ACTION_BLOCKING', 'ACTION_BLOCKING_HELPER', 'OPTIMIZER',
                         'ALPHA', 'BETA_V', 'BETA_M', 'EPSILON', 'LEARNING_TYPE', 'REPLAY_TYPE', 'NUM_REPLAY',
                         'BUFFER_SIZE',
                         'MINI_BATCH_SIZE',
-                        'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME']
-    agent_cols = ['RUN_ID', 'AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'NUM_NEGATIVE_ACTIONS_TAKEN', 'FINAL_POLICY_FILE',
+                        'AVG_TIME_STEP', 'MAX_TIME_STEP', 'AVG_RUNTIME', 'MAX_RUNTIME', 'NUM_COMPLETED',
+                        'NUM_OUT_OF_TIME']
+    agent_cols = ['RUN_ID', 'AGENT_ID', 'TOTAL_REWARD', 'NUM_UPDATE_STEPS', 'NUM_NEGATIVE_ACTIONS_TAKEN',
+                  'FINAL_POLICY_FILE',
                   'ACTIONS_FILE']
     agents_data = None
     action_cols = ['ID', 'ACTION', 'TYPE']
@@ -48,63 +113,7 @@ class Experiment:
         self.output_dir = output_dir
         self.current_run_ID = 0
 
-    def choose_from_options(self, all_possible_options, chosen_types, key):
-        chosen_options = []
-
-        if key in chosen_types:
-            if type(chosen_types[key]) == str:
-                if chosen_types[key].lower() == 'all':
-                    chosen_options = all_possible_options
-                elif chosen_types[key].lower() in all_possible_options:
-                    chosen_options = [chosen_types[key]]
-            elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
-                chosen_options = chosen_types[key]
-        else:
-            chosen_options = all_possible_options
-
-        return chosen_options
-
-    def choose_from_enums(self, all_possible_options, chosen_types, key):
-        chosen_options = []
-
-        if key in chosen_types:
-            if type(chosen_types[key]) == str:
-                if chosen_types[key] == 'all':
-                    chosen_options = all_possible_options
-                else:
-                    for some_type in all_possible_options:
-                        if some_type.name.lower() == chosen_types[key].lower():
-                            chosen_options = [some_type]
-                            break
-            elif type(chosen_types[key]) == list and len(chosen_types[key]) > 0:
-                chosen_options = []
-                for item in chosen_types[key]:
-                    for some_type in all_possible_options:
-                        if (type(item) == str and some_type.name.lower() == item.lower()) or type(
-                                item) == enum.Enum and item == some_type:
-                            chosen_options.append(some_type)
-                            break
-            elif chosen_types[key] in all_possible_options:
-                chosen_options = [chosen_types[key]]
-        else:
-            chosen_options = all_possible_options
-
-        return chosen_options
-
-    def create_boolean_list(self, chosen_types, key):
-        chosen_options = []
-        if key in chosen_types:
-            if chosen_types[key].lower() == 'yes':
-                chosen_options = [True]
-            elif chosen_types[key].lower() == 'no':
-                chosen_options = [False]
-            elif chosen_types[key].lower() == 'both':
-                chosen_options = [False, True]
-        else:
-            chosen_options = [False, True]
-        return chosen_options
-
-    def process_run(self, run_info, agents, run_times, time_steps):
+    def process_run(self, run_info, agents, run_times, time_steps, num_completed, num_out_of_time):
         self.current_run_ID += 1
         hyper_parameter_val = 0
         is_td_agent = len([agent for agent in agents if type(agent) == TDAgent]) > 0
@@ -128,7 +137,9 @@ class Experiment:
                     'MAX_RUNTIME': np.max(run_times),
                     'AVG_RUNTIME': np.mean(run_times),
                     'MAX_TIME_STEP': np.max(time_steps),
-                    'AVG_TIME_STEP': np.mean(time_steps)}
+                    'AVG_TIME_STEP': np.mean(time_steps),
+                    'NUM_COMPLETED': num_completed,
+                    'NUM_OUT_OF_TIME': num_out_of_time}
         if is_td_agent:
             if run_info['policy_name'] == 'epsilon_greedy':
                 hyper_parameter_val = run_info['policy_args']['epsilon']
@@ -263,16 +274,19 @@ class Experiment:
                     'num_episodes': num_episodes,
                     'random_seed': random_seed}
         # Process Experimental Parameters
-        chosen_add_pooling_flags = self.create_boolean_list(experimental_parameters, 'add_pooling') if environment.are_states_images else [False]
-        chosen_grayscale_flags = self.create_boolean_list(experimental_parameters, 'convert_to_grayscale') if environment.are_states_images else [False]
-        chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
-        chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
-        chosen_algorithms = self.choose_from_enums(AlgorithmName.all(), experimental_parameters, 'algorithm_names')
-        chosen_policies = self.choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb', 'network'],
-                                                   experimental_parameters, 'policies')
-        chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
-        chosen_double_agent_flags = self.create_boolean_list(experimental_parameters, 'enable_double_learning')
-        chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
+        chosen_add_pooling_flags = create_boolean_list(experimental_parameters,
+                                                       'add_pooling') if environment.are_states_images else [False]
+        chosen_grayscale_flags = create_boolean_list(experimental_parameters,
+                                                     'convert_to_grayscale') if environment.are_states_images else [
+            False]
+        chosen_replay_types = choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
+        chosen_learning_types = choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
+        chosen_algorithms = choose_from_enums(AlgorithmName.all(), experimental_parameters, 'algorithm_names')
+        chosen_policies = choose_from_options(['epsilon_greedy', 'softmax', 'thompson_sampling', 'ucb', 'network'],
+                                              experimental_parameters, 'policies')
+        chosen_action_blockers = create_boolean_list(experimental_parameters, 'enable_action_blocking')
+        chosen_double_agent_flags = create_boolean_list(experimental_parameters, 'enable_double_learning')
+        chosen_optimizers = choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
         policy_hyper_parameters = experimental_parameters['policy_hyper_parameters']
         algorithm_hyper_parameters = experimental_parameters['algorithm_hyper_parameters']
         optimizer_hyper_parameters = experimental_parameters[
@@ -333,7 +347,8 @@ class Experiment:
                                                     policy_hyper_parameter_list = [0]
                                                     hyper_parameter_type = ''
                                                     if policy_name == 'epsilon_greedy':
-                                                        policy_hyper_parameter_list = policy_hyper_parameters['epsilons']
+                                                        policy_hyper_parameter_list = policy_hyper_parameters[
+                                                            'epsilons']
                                                         hyper_parameter_type = 'epsilon'
                                                     elif policy_name == 'softmax':
                                                         policy_hyper_parameter_list = policy_hyper_parameters['taus']
@@ -360,8 +375,10 @@ class Experiment:
                                                                                            'action_dim': environment.required_action_dim,
                                                                                            'enable_action_blocking': enable_action_blocking})
                                                                         policy_args.update(
-                                                                            {'state_dim': environment.required_state_dim,
-                                                                             'num_actions': len(agent_info['actions'])})
+                                                                            {
+                                                                                'state_dim': environment.required_state_dim,
+                                                                                'num_actions': len(
+                                                                                    agent_info['actions'])})
                                                                         if policy_name == 'network':
                                                                             if policy_network_args is None:
                                                                                 policy_args.update(
@@ -371,7 +388,8 @@ class Experiment:
                                                                                      'convert_to_grayscale': convert_to_grayscale})
                                                                             else:
                                                                                 policy_args.update(
-                                                                                    {'network_args': policy_network_args})
+                                                                                    {
+                                                                                        'network_args': policy_network_args})
                                                                         run_info['policy_args'] = policy_args
                                                                         policy = choose_policy(policy_name, policy_args)
                                                                         algorithm_args['policy'] = policy
@@ -385,27 +403,35 @@ class Experiment:
                                                                                          LearningType.COMBINED]:
                                                                         for replay_type in chosen_replay_types:
                                                                             run_info['replay_type'] = replay_type
-                                                                            for num_replay in replay_buffer_hyper_parameters[
-                                                                                'num_replay']:
+                                                                            for num_replay in \
+                                                                                    replay_buffer_hyper_parameters[
+                                                                                        'num_replay']:
                                                                                 run_info['num_replay'] = num_replay
-                                                                                for buffer_size in replay_buffer_hyper_parameters[
-                                                                                    'buffer_size']:
-                                                                                    run_info['buffer_size'] = buffer_size
+                                                                                for buffer_size in \
+                                                                                        replay_buffer_hyper_parameters[
+                                                                                            'buffer_size']:
+                                                                                    run_info[
+                                                                                        'buffer_size'] = buffer_size
                                                                                     for mini_batch_size in \
                                                                                             replay_buffer_hyper_parameters[
                                                                                                 'mini_batch_size']:
                                                                                         run_info[
                                                                                             'mini_batch_size'] = mini_batch_size
-                                                                                        agents, run_times, time_steps = self.perform_run(
+                                                                                        agents, run_times, time_steps, num_completed, num_out_of_time = self.perform_run(
                                                                                             run_info)
-                                                                                        self.process_run(run_info, agents,
-                                                                                                         run_times, time_steps)
+                                                                                        self.process_run(run_info,
+                                                                                                         agents,
+                                                                                                         run_times,
+                                                                                                         time_steps,
+                                                                                                         num_completed,
+                                                                                                         num_out_of_time)
                                                                     elif learning_type == LearningType.ONLINE:
                                                                         run_info['replay_type'] = BufferType.BASIC
-                                                                        agents, run_times, time_steps = self.perform_run(
+                                                                        agents, run_times, time_steps, num_completed, num_out_of_time = self.perform_run(
                                                                             run_info)
                                                                         self.process_run(run_info, agents, run_times,
-                                                                                         time_steps)
+                                                                                         time_steps, num_completed,
+                                                                                         num_out_of_time)
 
         self.hyper_parameters_data.to_csv(
             '{0}'.format(os.path.join(self.output_dir, 'td_run_summary_{0}.csv'.format(self.dt_str))), index=False)
@@ -413,7 +439,7 @@ class Experiment:
             '{0}'.format(os.path.join(self.output_dir, 'td_agents_data_{0}.csv'.format(self.dt_str))),
             index=False)
 
-    def perform_experiement_ddpg(self, experimental_parameters, specifics):
+    def perform_experiment_ddpg(self, experimental_parameters, specifics):
         self.current_run_ID = 0
         self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
         self.agents_data = pd.DataFrame(columns=self.agent_cols)
@@ -436,13 +462,16 @@ class Experiment:
                     'num_episodes': num_episodes,
                     'random_seed': random_seed}
         # Process Experimental Parameters
-        chosen_add_pooling_flags = self.create_boolean_list(experimental_parameters, 'add_pooling') if environment.are_states_images else [False]
-        chosen_grayscale_flags = self.create_boolean_list(experimental_parameters, 'convert_to_grayscale') if environment.are_states_images else [False]
-        chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
-        chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
-        chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
-        chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
-        chosen_enable_noise_flags = self.create_boolean_list(experimental_parameters, 'enable_noise')
+        chosen_add_pooling_flags = create_boolean_list(experimental_parameters,
+                                                       'add_pooling') if environment.are_states_images else [False]
+        chosen_grayscale_flags = create_boolean_list(experimental_parameters,
+                                                     'convert_to_grayscale') if environment.are_states_images else [
+            False]
+        chosen_optimizers = choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
+        chosen_replay_types = choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
+        chosen_learning_types = choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
+        chosen_action_blockers = create_boolean_list(experimental_parameters, 'enable_action_blocking')
+        chosen_enable_noise_flags = create_boolean_list(experimental_parameters, 'enable_noise')
         optimizer_hyper_parameters = experimental_parameters[
             'optimizer_hyper_parameters'] if 'optimizer_hyper_parameters' in experimental_parameters else {}
         replay_buffer_hyper_parameters = experimental_parameters[
@@ -464,11 +493,13 @@ class Experiment:
             actor_network_args['convert_to_grayscale'] = convert_to_grayscale
             critic_network_args['convert_to_grayscale'] = convert_to_grayscale
             for add_pooling in chosen_add_pooling_flags:
+                run_info['add_pooling'] = add_pooling
                 actor_network_args['add_pooling'] = add_pooling
                 critic_network_args['add_pooling'] = add_pooling
                 for tau in experimental_parameters['taus']:
                     actor_network_args['tau'] = tau
                     critic_network_args['tau'] = tau
+                    run_info['tau'] = tau
                     for optimizer_type in chosen_optimizers:
                         actor_network_args['optimizer_type'] = optimizer_type
                         critic_network_args['optimizer_type'] = optimizer_type
@@ -510,27 +541,32 @@ class Experiment:
                                                                                'enable_action_blocking': enable_action_blocking})
                                                             agents.append(DDPGAgent(agent_info))
                                                         run_info['agents'] = agents
-                                                        if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY,
+                                                        if learning_type in [LearningType.REPLAY,
+                                                                             LearningType.OFF_POLICY,
                                                                              LearningType.COMBINED]:
                                                             for replay_type in chosen_replay_types:
                                                                 run_info['replay_type'] = replay_type
                                                                 for num_replay in replay_buffer_hyper_parameters['num_replay']:
                                                                     run_info['num_replay'] = num_replay
-                                                                    for buffer_size in replay_buffer_hyper_parameters[
-                                                                        'buffer_size']:
+                                                                    for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
                                                                         run_info['buffer_size'] = buffer_size
-                                                                        for mini_batch_size in replay_buffer_hyper_parameters[
-                                                                            'mini_batch_size']:
-                                                                            run_info['mini_batch_size'] = mini_batch_size
-                                                                            agents, run_times, time_steps = self.perform_run(
+                                                                        for mini_batch_size in \
+                                                                                replay_buffer_hyper_parameters[
+                                                                                    'mini_batch_size']:
+                                                                            run_info[
+                                                                                'mini_batch_size'] = mini_batch_size
+                                                                            agents, run_times, time_steps, num_completed, num_out_of_time = self.perform_run(
                                                                                 run_info)
-                                                                            self.process_run(run_info, agents, run_times,
-                                                                                             time_steps)
+                                                                            self.process_run(run_info, agents,
+                                                                                             run_times,
+                                                                                             time_steps, num_completed,
+                                                                                             num_out_of_time)
                                                         elif learning_type == LearningType.ONLINE:
                                                             run_info['replay_type'] = BufferType.BASIC
-                                                            agents, run_times, time_steps = self.perform_run(
+                                                            agents, run_times, time_steps, num_completed, num_out_of_time = self.perform_run(
                                                                 run_info)
-                                                            self.process_run(run_info, agents, run_times, time_steps)
+                                                            self.process_run(run_info, agents, run_times, time_steps,
+                                                                             num_completed, num_out_of_time)
 
         self.hyper_parameters_data.to_csv(
             '{0}'.format(os.path.join(self.output_dir, 'ddpg_run_summary_{0}.csv'.format(self.dt_str))), index=False)
@@ -538,7 +574,7 @@ class Experiment:
             '{0}'.format(os.path.join(self.output_dir, 'ddpg_agents_data_{0}.csv'.format(self.dt_str))),
             index=False)
 
-    def perform_experiment_a2c(self, experimental_parameters, specifics):
+    def perform_experiment_dac(self, experimental_parameters, specifics):
         self.current_run_ID = 0
         self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
         self.agents_data = pd.DataFrame(columns=self.agent_cols)
@@ -561,12 +597,15 @@ class Experiment:
                     'num_episodes': num_episodes,
                     'random_seed': random_seed}
         # Process Experimental Parameters
-        chosen_add_pooling_flags = self.create_boolean_list(experimental_parameters, 'add_pooling') if environment.are_states_images else [False]
-        chosen_grayscale_flags = self.create_boolean_list(experimental_parameters, 'convert_to_grayscale') if environment.are_states_images else [False]
-        chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
-        chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
-        chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
-        chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
+        chosen_add_pooling_flags = create_boolean_list(experimental_parameters,
+                                                       'add_pooling') if environment.are_states_images else [False]
+        chosen_grayscale_flags = create_boolean_list(experimental_parameters,
+                                                     'convert_to_grayscale') if environment.are_states_images else [
+            False]
+        chosen_optimizers = choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
+        chosen_replay_types = choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
+        chosen_learning_types = choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
+        chosen_action_blockers = create_boolean_list(experimental_parameters, 'enable_action_blocking')
         optimizer_hyper_parameters = experimental_parameters[
             'optimizer_hyper_parameters'] if 'optimizer_hyper_parameters' in experimental_parameters else {}
         replay_buffer_hyper_parameters = experimental_parameters[
@@ -586,6 +625,7 @@ class Experiment:
             actor_network_args['convert_to_grayscale'] = convert_to_grayscale
             critic_network_args['convert_to_grayscale'] = convert_to_grayscale
             for add_pooling in chosen_add_pooling_flags:
+                run_info['add_pooling'] = add_pooling
                 actor_network_args['add_pooling'] = add_pooling
                 critic_network_args['add_pooling'] = add_pooling
                 for optimizer_type in chosen_optimizers:
@@ -623,7 +663,7 @@ class Experiment:
                                                                        'discount_factor': gamma,
                                                                        'state_dim': environment.required_state_dim,
                                                                        'enable_action_blocking': enable_action_blocking})
-                                                    agents.append(A2CAgent(agent_info))
+                                                    agents.append(DACAgent(agent_info))
                                                 run_info['agents'] = agents
                                                 if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY,
                                                                      LearningType.COMBINED]:
@@ -633,25 +673,26 @@ class Experiment:
                                                             run_info['num_replay'] = num_replay
                                                             for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
                                                                 run_info['buffer_size'] = buffer_size
-                                                                for mini_batch_size in replay_buffer_hyper_parameters[
-                                                                    'mini_batch_size']:
+                                                                for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
                                                                     run_info['mini_batch_size'] = mini_batch_size
-                                                                    agents, run_times, time_steps = self.perform_run(
+                                                                    agents, run_times, time_steps, num_completed, num_out_of_time = self.perform_run(
                                                                         run_info)
                                                                     self.process_run(run_info, agents, run_times,
-                                                                                     time_steps)
+                                                                                     time_steps, num_completed,
+                                                                                     num_out_of_time)
                                                 elif learning_type == LearningType.ONLINE:
                                                     run_info['replay_type'] = BufferType.BASIC
-                                                    agents, run_times, time_steps = self.perform_run(
+                                                    agents, run_times, time_steps, num_completed, num_out_of_time = self.perform_run(
                                                         run_info)
-                                                    self.process_run(run_info, agents, run_times, time_steps)
+                                                    self.process_run(run_info, agents, run_times, time_steps,
+                                                                     num_completed, num_out_of_time)
         self.hyper_parameters_data.to_csv(
             '{0}'.format(os.path.join(self.output_dir, 'a2c_run_summary_{0}.csv'.format(self.dt_str))), index=False)
         self.agents_data.to_csv(
             '{0}'.format(os.path.join(self.output_dir, 'a2c_agents_data_{0}.csv'.format(self.dt_str))),
             index=False)
 
-    def perform_experiment_pg(self, experimental_parameters, specifics):
+    def perform_experiment_cac(self, experimental_parameters, specifics):
         self.current_run_ID = 0
         self.dt_str = datetime.now().strftime("%Y%m%d%H%M%S")
         self.agents_data = pd.DataFrame(columns=self.agent_cols)
@@ -676,12 +717,15 @@ class Experiment:
                     'normal_dist_std_dev': specifics[
                         'normal_dist_std_dev'] if 'normal_dist_std_dev' in specifics else 1.0}
         # Process Experimental Parameters
-        chosen_add_pooling_flags = self.create_boolean_list(experimental_parameters, 'add_pooling') if environment.are_states_images else [False]
-        chosen_grayscale_flags = self.create_boolean_list(experimental_parameters, 'convert_to_grayscale') if environment.are_states_images else [False]
-        chosen_optimizers = self.choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
-        chosen_replay_types = self.choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
-        chosen_learning_types = self.choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
-        chosen_action_blockers = self.create_boolean_list(experimental_parameters, 'enable_action_blocking')
+        chosen_add_pooling_flags = create_boolean_list(experimental_parameters,
+                                                       'add_pooling') if environment.are_states_images else [False]
+        chosen_grayscale_flags = create_boolean_list(experimental_parameters,
+                                                     'convert_to_grayscale') if environment.are_states_images else [
+            False]
+        chosen_optimizers = choose_from_enums(NetworkOptimizer.all(), experimental_parameters, 'optimizers')
+        chosen_replay_types = choose_from_enums(BufferType.all(), experimental_parameters, 'replay_types')
+        chosen_learning_types = choose_from_enums(LearningType.all(), experimental_parameters, 'learning_types')
+        chosen_action_blockers = create_boolean_list(experimental_parameters, 'enable_action_blocking')
         optimizer_hyper_parameters = experimental_parameters[
             'optimizer_hyper_parameters'] if 'optimizer_hyper_parameters' in experimental_parameters else {}
         replay_buffer_hyper_parameters = experimental_parameters[
@@ -701,6 +745,7 @@ class Experiment:
             actor_network_args['convert_to_grayscale'] = convert_to_grayscale
             critic_network_args['convert_to_grayscale'] = convert_to_grayscale
             for add_pooling in chosen_add_pooling_flags:
+                run_info['add_pooling'] = add_pooling
                 actor_network_args['add_pooling'] = add_pooling
                 critic_network_args['add_pooling'] = add_pooling
                 for optimizer_type in chosen_optimizers:
@@ -739,7 +784,7 @@ class Experiment:
                                                                        'action_dim': environment.required_action_dim,
                                                                        'state_dim': environment.required_state_dim,
                                                                        'enable_action_blocking': enable_action_blocking})
-                                                    agents.append(PGAgent(agent_info))
+                                                    agents.append(CACAgent(agent_info))
                                                 run_info['agents'] = agents
                                                 if learning_type in [LearningType.REPLAY, LearningType.OFF_POLICY,
                                                                      LearningType.COMBINED]:
@@ -749,25 +794,26 @@ class Experiment:
                                                             run_info['num_replay'] = num_replay
                                                             for buffer_size in replay_buffer_hyper_parameters['buffer_size']:
                                                                 run_info['buffer_size'] = buffer_size
-                                                                for mini_batch_size in replay_buffer_hyper_parameters[
-                                                                    'mini_batch_size']:
+                                                                for mini_batch_size in replay_buffer_hyper_parameters['mini_batch_size']:
                                                                     run_info['mini_batch_size'] = mini_batch_size
-                                                                    agents, run_times, time_steps = self.perform_run(
+                                                                    agents, run_times, time_steps, num_completed, num_out_of_time = self.perform_run(
                                                                         run_info)
                                                                     self.process_run(run_info, agents, run_times,
-                                                                                     time_steps)
+                                                                                     time_steps, num_completed,
+                                                                                     num_out_of_time)
                                                 elif learning_type == LearningType.ONLINE:
                                                     run_info['replay_type'] = BufferType.BASIC
-                                                    agents, run_times, time_steps = self.perform_run(
+                                                    agents, run_times, time_steps, num_completed, num_out_of_time = self.perform_run(
                                                         run_info)
-                                                    self.process_run(run_info, agents, run_times, time_steps)
+                                                    self.process_run(run_info, agents, run_times, time_steps,
+                                                                     num_completed, num_out_of_time)
         self.hyper_parameters_data.to_csv(
             '{0}'.format(os.path.join(self.output_dir, 'pg_run_summary_{0}.csv'.format(self.dt_str))), index=False)
         self.agents_data.to_csv(
             '{0}'.format(os.path.join(self.output_dir, 'pg_agents_data_{0}.csv'.format(self.dt_str))),
             index=False)
 
-    def perform_run(self, run_info={}):
+    def perform_run(self, run_info):
         agents = run_info['agents']
         random_seed = run_info['random_seed'] if 'random_seed' in run_info else None
         learning_type = run_info['learning_type'] if 'learning_type' in run_info else LearningType.ONLINE
@@ -809,10 +855,10 @@ class Experiment:
                 agent.critic_network_init(run_info['critic_network_args'])
                 agent.exploration_noise_init(
                     run_info['exploration_noise_args'] if 'exploration_noise_args' in run_info else {})
-            elif type(agent) == A2CAgent:
+            elif type(agent) == DACAgent:
                 agent.actor_network_init(run_info['actor_network_args'])
                 agent.critic_network_init(run_info['critic_network_args'])
-            elif type(agent) == PGAgent:
+            elif type(agent) == CACAgent:
                 agent.actor_network_init(run_info['actor_network_args'], run_info['normal_dist_std_dev'])
                 agent.critic_network_init(run_info['critic_network_args'])
 
@@ -832,13 +878,21 @@ class Experiment:
             num_episodes = run_info['num_episodes']
             time_steps = np.zeros(num_episodes)
             run_times = np.zeros(num_episodes)
+            num_completed = 0
+            num_out_of_time = 0
 
             for episode in range(num_episodes):
                 environment.reset()
                 done = False
+                value = 0
                 start = datetime.now()
                 while not done:
-                    done = environment.step()
+                    done, value = environment.step()
+
+                if value == 1:
+                    num_completed += 1
+                elif value == 2:
+                    num_out_of_time += 1
 
                 time_steps[episode] = environment.current_time_step
 
@@ -849,8 +903,9 @@ class Experiment:
                 for agent in environment.agents:
                     agent_ml_data_dir = join(ml_data_dir, 'agent_{0}'.format(agent.agent_id))
                     file_name = join(agent_ml_data_dir,
-                                     'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"),
-                                                                    episode + 1))
+                                     'log{0}_run{1}_episode{2}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"),
+                                                                           self.current_run_ID + 1,
+                                                                           episode + 1))
                     if isfile(file_name):
                         file_name = join(file_name, 'duplicate')
                     agent.action_blocking_data.to_csv(
@@ -860,11 +915,12 @@ class Experiment:
                     if not learning_type == LearningType.OFF_POLICY:
                         agent_samples_dir = join(samples_dir, 'agent_{0}'.format(agent.agent_id))
                         file_name = join(agent_samples_dir,
-                                         'log{0}_episode{1}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"),
-                                                                        episode + 1))
+                                         'log{0}_run{1}_episode{2}.csv'.format(datetime.now().strftime("%Y%m%d%H%M%S"),
+                                                                               self.current_run_ID + 1,
+                                                                               episode + 1))
                         if isfile(file_name):
                             file_name = join(file_name, 'duplicate')
                         agent.experienced_samples.to_csv(file_name,
                                                          index=False)
 
-            return environment.agents, run_times, time_steps
+            return environment.agents, run_times, time_steps, num_completed, num_out_of_time

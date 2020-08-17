@@ -1,10 +1,10 @@
 from .agent import Agent
-from reinforcement_learning.network.a2c_critic_network import A2CCriticNetwork
-from reinforcement_learning.network.a2c_actor_network import A2CActorNetwork
+from reinforcement_learning.network.dac_critic_network import DACCriticNetwork
+from reinforcement_learning.network.dac_actor_network import DACActorNetwork
 import numpy as np
 
 
-class A2CAgent(Agent):
+class DACAgent(Agent):
     actor_network = None
     critic_network = None
     discount_factor = 0
@@ -15,15 +15,15 @@ class A2CAgent(Agent):
     def actor_network_init(self, actor_network_args):
         actor_network_args.update({'num_outputs': len(self.actions),
                                    'num_inputs' if type(self.state_dim) == int else 'input_shape': self.state_dim})
-        self.actor_network = A2CActorNetwork(actor_network_args)
+        self.actor_network = DACActorNetwork(actor_network_args)
 
     def critic_network_init(self, critic_network_args):
         critic_network_args.update({'num_outputs': 1,
                                     'num_inputs' if type(self.state_dim) == int else 'input_shape': self.state_dim})
-        self.critic_network = A2CCriticNetwork(critic_network_args)
+        self.critic_network = DACCriticNetwork(critic_network_args)
 
     def optimize_network(self, experiences):
-        if self.flatten_state:
+        if type(self.state_dim) == tuple:
             state_shape = [len(experiences)]
             for s in self.state_dim:
                 state_shape.append(s)

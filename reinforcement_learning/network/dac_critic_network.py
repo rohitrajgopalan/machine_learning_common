@@ -2,12 +2,12 @@ from neural_network.neural_network import NeuralNetwork
 import numpy as np
 
 
-class A2CCriticNetwork:
+class DACCriticNetwork:
     network = None
 
     def __init__(self, args):
         args.update({'loss_function': 'mse'})
-        self.network = NeuralNetwork.choose_neural_network(args)
+        self.network = NeuralNetwork(args)
 
     def get_values(self, states):
         return self.network.predict(states)

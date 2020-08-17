@@ -7,7 +7,7 @@ class RLSupervisedHelper:
     action_dim = 0
     supervised_learning_helper = None
 
-    def __init__(self, method_type, csv_dir, state_dim, action_dim, label, filters, dl_args=None):
+    def __init__(self, method_type, csv_dir, state_dim, action_dim, label, dl_args=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
         features = []
@@ -19,10 +19,9 @@ class RLSupervisedHelper:
         if self.action_dim == 1:
             features.append('INITIAL_ACTION')
         else:
-            for i in range(i, self.action_dim + 1):
+            for i in range(1, self.action_dim + 1):
                 features.append('INITIAL_ACTION_VAR{0}'.format(i))
-        self.supervised_learning_helper = SupervisedLearningHelper.choose_helper(method_type, csv_dir, features, label,
-                                                                                 filters, False, dl_args, 'best', '', False, )
+        self.supervised_learning_helper = SupervisedLearningHelper.choose_helper(method_type, files_dir=csv_dir, features=features, label=label, dl_args=dl_args)
 
     def add(self, state, action, target_value):
         new_data = {}

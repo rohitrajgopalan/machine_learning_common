@@ -56,9 +56,16 @@ class Environment:
         self.agents_step_info = {}
         self.current_time_step = 0
 
+    # Return 0 and False for incomplete
+    # Return 1 and True if all agents are done
+    # Return 2 and True if we run out of time
     def is_complete(self):
-        active_agents = [agent for agent in self.agents if agent.active]
-        return len(active_agents) == 0 or (0 < self.max_time_steps == self.current_time_step)
+        if 0 < self.max_time_steps == self.current_time_step:
+            return True, 2
+        elif len([agent for agent in self.agents if agent.active]) == 0:
+            return True, 1
+        else:
+            return False, 0
 
     def generate_rewards(self):
         for agent in self.agents:
@@ -88,8 +95,9 @@ class Environment:
         return 0, False
 
     def step(self):
-        if self.is_complete():
-            return True
+        is_complete, complete_val = self.is_complete()
+        if is_complete:
+            return True, complete_val
         self.current_time_step += 1
         active_agents = [agent for agent in self.agents if agent.active]
         for agent in active_agents:
@@ -99,9 +107,10 @@ class Environment:
                 self.generate_rewards()
                 _, r1 = self.agents_step_info[agent.agent_id][agent.initial_action]
                 _, r2 = self.agents_step_info[agent.agent_id][agent.actual_action]
+                is_complete, complete_val = self.is_complete()
                 agent.step(r1, r2, r1 <= -self.min_penalty)
-                if self.is_complete():
-                    return True
+                if is_complete:
+                    return True, complete_val
 
         if self.reward_type == RewardType.Delayed:
             self.generate_rewards()
@@ -111,4 +120,4 @@ class Environment:
                 agent.step(r1, r2, r1 <= -self.min_penalty)
             return self.is_complete()
         else:
-            return False
+            return False, 0

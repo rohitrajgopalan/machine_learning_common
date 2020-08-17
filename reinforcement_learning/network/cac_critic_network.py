@@ -3,14 +3,14 @@ import numpy as np
 from neural_network.neural_network import NeuralNetwork
 
 
-class PGCriticNetwork:
+class CACCriticNetwork:
     network = None
     state_dim = 0
 
     def __init__(self, args):
         self.state_dim = args['num_inputs']
         args.update({'loss_function': 'mse'})
-        self.network = NeuralNetwork.choose_neural_network(args)
+        self.network = NeuralNetwork(args)
 
     def get_values(self, states):
         return self.network.predict(states)
