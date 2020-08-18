@@ -14,10 +14,10 @@ class CACAgent(Agent):
     def __init__(self, args={}):
         super().__init__(args)
 
-    def actor_network_init(self, actor_network_args, normal_dist_std_dev):
+    def actor_network_init(self, actor_network_args, normal_dist_std_dev, use_gradients):
         actor_network_args.update({'num_outputs': self.action_dim,
                                    'num_inputs' if type(self.state_dim) == int else 'input_shape': self.state_dim})
-        self.actor_network = CACActorNetwork(actor_network_args, normal_dist_std_dev)
+        self.actor_network = CACActorNetwork(actor_network_args, normal_dist_std_dev, use_gradients)
 
     def critic_network_init(self, critic_network_args):
         critic_network_args.update({'num_outputs': 1,
@@ -39,7 +39,6 @@ class CACAgent(Agent):
             state_shape = (len(experiences), self.state_dim)
         states = np.zeros(state_shape)
         actions = np.zeros((len(experiences), self.action_dim))
-        rewards = np.zeros((len(experiences)))
         target_values = np.zeros((len(experiences)))
         target_errors = np.zeros((len(experiences)))
         for batch_idx, experience in enumerate(experiences):
@@ -50,7 +49,6 @@ class CACAgent(Agent):
             s_ = s_ if self.state_dim > 1 else np.array([s_])
             target_values[batch_idx] = self.calculate_target_value(s_, r, 1 - terminal)
             target_errors[batch_idx] = self.get_target_error(s, a, s_, r, 1 - terminal)
-            rewards[batch_idx] = r
 
         self.critic_network.update(states, target_values)
         self.actor_network.update(states, actions, target_errors)

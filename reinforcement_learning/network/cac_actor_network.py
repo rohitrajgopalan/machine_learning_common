@@ -7,12 +7,15 @@ class CACActorNetwork:
     network = None
     action_dim = 0
     std_dev = 0.0
+    use_gradients = False
 
-    def __init__(self, args, normal_dist_std_dev):
+    def __init__(self, args, normal_dist_std_dev, use_gradients=False):
         self.action_dim = args['num_outputs']
         assert type(normal_dist_std_dev) == float or (
                 type(normal_dist_std_dev) == np.ndarray and normal_dist_std_dev.shape[0] == self.action_dim)
-        args.update({'loss_function': 'categorical_crossentropy'})
+        args.update({'use_gradients': use_gradients})
+        if not use_gradients:
+            args.update({'loss_function': 'categorical_crossentropy'})
         self.std_dev = normal_dist_std_dev
         self.network = NeuralNetwork(args)
 
@@ -29,5 +32,13 @@ class CACActorNetwork:
             except:
                 return np.zeros(self.action_dim)
 
-    def update(self, states, actions, advantages):
-        self.network.fit(states, actions, advantages)
+    def update(self, states, actions, td_error):
+        if not self.use_gradients:
+            self.network.fit(states, actions, td_error)
+        else:
+            y_true = actions
+            y_pred = self.actions(states)
+            y_pred_clipped = np.clip(y_pred, 1e-08, 1 - 1e-08)
+            log_like = y_true * np.log(y_pred_clipped)
+            actor_loss = np.sum(-log_like * td_error)
+            self.network.generate_and_apply_gradients(actor_loss)

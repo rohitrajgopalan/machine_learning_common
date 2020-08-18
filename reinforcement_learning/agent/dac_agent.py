@@ -12,10 +12,10 @@ class DACAgent(Agent):
     def __init__(self, args={}):
         super().__init__(args)
 
-    def actor_network_init(self, actor_network_args):
+    def actor_network_init(self, actor_network_args, use_gradients):
         actor_network_args.update({'num_outputs': len(self.actions),
                                    'num_inputs' if type(self.state_dim) == int else 'input_shape': self.state_dim})
-        self.actor_network = DACActorNetwork(actor_network_args)
+        self.actor_network = DACActorNetwork(actor_network_args, use_gradients)
 
     def critic_network_init(self, critic_network_args):
         critic_network_args.update({'num_outputs': 1,
