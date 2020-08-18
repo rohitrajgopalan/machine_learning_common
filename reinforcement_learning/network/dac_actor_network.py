@@ -44,5 +44,8 @@ class DACActorNetwork:
             y_pred = self.multiple_action_probabilities(states)
             y_pred_clipped = np.clip(y_pred, 1e-08, 1 - 1e-08)
             log_like = y_true * np.log(y_pred_clipped)
-            actor_loss = np.sum(-log_like * td_error)
-            self.network.generate_and_apply_gradients(actor_loss)
+            log_like = tf.convert_to_tensor(log_like)
+            td_error = tf.convert_to_tensor(td_error)
+            with tf.GradientTape() as tape:
+                actor_loss = tf.reduce_sum(-log_like * td_error)
+            self.network.generate_and_apply_gradients(actor_loss, tape)
