@@ -115,6 +115,5 @@ class DDPGCriticNetwork:
             except:
                 return 0
 
-    def generate_and_apply_gradients(self, critic_loss, tape=tf.GradientTape()):
-        gradients = tape.gradient(critic_loss, self.model.trainable_variables)
+    def apply_gradients(self, gradients):
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))

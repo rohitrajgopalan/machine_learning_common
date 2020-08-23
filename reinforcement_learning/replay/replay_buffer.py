@@ -13,7 +13,7 @@ class ReplayBuffer:
             self.minibatch_size = int(minibatch_size * size)
         self.max_size = size
 
-    def append(self, state, action, next_state, reward, terminal, **args):
+    def append(self, state, action, next_state, reward, terminal, picked_action_prob=0, **args):
         pass
 
     def sample(self):

@@ -13,7 +13,7 @@ class RandomizedReplayBuffer(ReplayBuffer):
         super().__init__(size, minibatch_size)
         self.rand_generator = np.random.RandomState(args['seed'] if 'seed' in args else 0)
 
-    def append(self, state, action, next_state, reward, terminal, **args):
+    def append(self, state, action, next_state, reward, terminal, picked_action_prob=0, **args):
         """
         Args:
             state (Numpy array): The state.
@@ -21,10 +21,11 @@ class RandomizedReplayBuffer(ReplayBuffer):
             reward (float): The reward.
             terminal (integer): 1 if the next state is a terminal state and 0 otherwise.
             next_state (Numpy array): The next state.
+            picked_action_prob (integer): Probability of action that was chosen. Used for Policy networks
         """
         if len(self.buffer) == self.max_size:
             del self.buffer[0]
-        self.buffer.append([state, action, next_state, reward, terminal])
+        self.buffer.append([state, action, next_state, reward, terminal, picked_action_prob])
 
     def sample(self):
         """

@@ -1,6 +1,6 @@
 import numpy as np
 
-from neural_network.neural_network import NeuralNetwork
+from neural_network.keras_neural_network import KerasNeuralNetwork
 
 
 class ActionValueNetwork:
@@ -11,11 +11,11 @@ class ActionValueNetwork:
 
     def __init__(self, args={}, is_double=False):
         args.update({'loss_function': 'mse'})
-        self.model_network = NeuralNetwork(args)
+        self.model_network = KerasNeuralNetwork(args)
         self.num_actions = args['num_outputs']
         self.is_double = is_double
         if self.is_double:
-            self.target_network = NeuralNetwork(args)
+            self.target_network = KerasNeuralNetwork(args)
 
     def get_action_values(self, s):
         return self.get_action_values_with_network(s, self.model_network)

@@ -7,3 +7,4 @@ ai_ml_common.egg-info*
 build*
 dist*
 venv*
+test.py

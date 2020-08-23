@@ -8,20 +8,20 @@ class TDAgent(Agent):
     is_double_agent = False
     action_value_network = None
 
-    def __init__(self, args={}):
-        super().__init__(args)
-
     def network_init(self, action_network_args):
         action_network_args.update({'num_outputs': len(self.actions),
                                     'num_inputs' if type(self.state_dim) == int else 'input_shape': self.state_dim})
         self.action_value_network = ActionValueNetwork(action_network_args, self.is_double_agent)
 
     def step(self, r1, r2, should_action_be_blocked=False):
+        self.algorithm.policy.update(self.initial_action, should_action_be_blocked, state=self.current_state,
+                                     td_error=self.get_immediate_target_error(-r2 if self.did_block_action else r1),
+                                     picked_action_prob=self.initial_action_prob)
         self.action_value_network.update_target_weights()
         super().step(r1, r2, should_action_be_blocked)
 
     def assign_initial_action(self):
-        self.initial_action = self.algorithm.policy.choose_action(self.current_state, self.action_value_network)
+        self.initial_action, self.initial_action_prob = self.algorithm.policy.choose_action(self.current_state, network=self.action_value_network)
 
     def optimize_network(self, experiences):
         q_target = np.zeros((len(experiences), len(self.actions)))
@@ -34,7 +34,7 @@ class TDAgent(Agent):
             state_shape = (len(experiences), self.state_dim)
         states = np.zeros(state_shape)
         for batch_idx, experience in enumerate(experiences):
-            s, a, s_, r, terminal = experience
+            s, a, s_, r, terminal, _ = experience
             target_value = self.algorithm.calculate_target_value(a, s_, r, 1 - terminal, self.action_value_network)
             try:
                 q_target[batch_idx, a] = target_value

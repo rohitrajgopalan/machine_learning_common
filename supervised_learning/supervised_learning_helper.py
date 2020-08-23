@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.preprocessing import RobustScaler, Normalizer
 
-from neural_network.neural_network import NeuralNetwork
+from neural_network.keras_neural_network import KerasNeuralNetwork
 from .common import select_method, load_from_directory
 
 
@@ -96,5 +96,5 @@ class DeepLearningHelper(SupervisedLearningHelper):
     def __init__(self, method_type, enable_scaling=False, enable_normalization=False, **args):
         dl_args = args['dl_args']
         dl_args.update({'num_inputs': args['num_inputs'], 'num_outputs': 1, 'enable_scaling': enable_scaling, 'enable_normalization': enable_normalization})
-        self.model = NeuralNetwork(dl_args)
+        self.model = KerasNeuralNetwork(dl_args)
         super().__init__(method_type, enable_scaling, enable_normalization, **args)

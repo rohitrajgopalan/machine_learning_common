@@ -5,11 +5,11 @@ from .network_layer import *
 from .network_types import NetworkOptimizer
 
 
-class NeuralNetwork:
+class KerasNeuralNetwork:
     model = None
     network_layers = None
     optimizer = None
-    loss_function = ''
+    loss_function = None
     enable_scaling = False
     enable_normalization = False
     scaler = RobustScaler()
@@ -21,6 +21,7 @@ class NeuralNetwork:
     num_outputs = 0
     convert_to_grayscale = False
     add_pooling = False
+    using_keras = False
 
     def __init__(self, args):
         self.network_layers = []
@@ -28,6 +29,7 @@ class NeuralNetwork:
         self.add_pooling = args['add_pooling'] if 'add_pooling' in args else False
         self.is_sequential = args['is_sequential'] if 'is_sequential' in args else True
         self.use_gradients = args['use_gradients'] if 'use_gradients' in args else False
+        self.using_keras = args['using_keras'] if 'using_keras' in args else False
         if 'num_inputs' in args:
             self.num_inputs = args['num_inputs']
             self.input_shape = (self.num_inputs,)
@@ -58,23 +60,23 @@ class NeuralNetwork:
         self.build_model()
 
     def build_model(self):
-        for network_layer in self.network_layers:
-            if network_layer.add_batch_norm:
-                self.is_sequential = False
-                break
+        if self.use_gradients or len([network_layer for network_layer in self.network_layers if network_layer.add_batch_norm]) > 0:
+            self.is_sequential = False
         if self.is_sequential:
             self.model = tf.keras.models.Sequential()
             for network_layer in self.network_layers:
                 self.model.add(network_layer.layer)
+            self.model.compile(self.optimizer, loss=self.loss_function)
         else:
-            inp = tf.keras.layers.Input(shape=self.input_shape)
+            input_layer = tf.keras.layers.Input(shape=self.input_shape)
             if self.convert_to_grayscale:
-                inp = tf.keras.layers.Lambda(lambda img: img / 255.0)(inp)
-            output = inp
+                input_layer = tf.keras.layers.Lambda(lambda img: img / 255.0)(input_layer)
+            output = input_layer
             for network_layer in self.network_layers:
-                output = network_layer.get_layer(inp=output)
-            self.model = tf.keras.Model(inp, output)
-        if not self.use_gradients:
+                output = network_layer.get_keras(inp=output)
+            else:
+                self.model = tf.keras.Model(input_layer, output)
+        if not self.use_gradients and self.loss_function is not None:
             self.model.compile(self.optimizer, loss=self.loss_function)
 
     def optimizer_init(self, optimizer_type, optimizer_args):
@@ -102,22 +104,21 @@ class NeuralNetwork:
         else:
             return self.model(inputs)
 
-    def fit(self, inputs, outputs, sample_weight=None):
-        if not self.is_sequential:
+    def fit(self, inputs, outputs, advantages=None):
+        if self.use_gradients:
             pass
         if self.convert_to_grayscale:
             inputs /= 255.0
         if self.enable_scaling:
             inputs = self.scaler.fit_transform(inputs)
-        if sample_weight is None:
+        if advantages is None:
             self.model.fit(inputs, outputs, epochs=1, verbose=0)
         else:
-            self.model.fit(inputs, outputs, sample_weight=sample_weight, epochs=1, verbose=0)
+            self.model.fit(inputs, outputs, sample_weight=advantages, epochs=1, verbose=0)
 
-    def generate_and_apply_gradients(self, loss, tape=tf.GradientTape()):
+    def apply_gradients(self, gradients):
         if not self.use_gradients:
             pass
-        gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
     def parse_dense_layer_info(self, dense_layer_info_list):
@@ -141,7 +142,8 @@ class NeuralNetwork:
             if type(bias_initializer) == str:
                 bias_initializer = NetworkInitializationType.get_type_by_name(bias_initializer)
             use_bias = dense_layer_info['use_bias'] if 'use_bias' in dense_layer_info else True
-            add_batch_norm = dense_layer_info['add_batch_norm'] if 'add_batch_norm' in dense_layer_info else self.enable_normalization
+            add_batch_norm = dense_layer_info[
+                'add_batch_norm'] if 'add_batch_norm' in dense_layer_info else self.enable_normalization
             self.network_layers.append(
                 DenseNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
                                   self.input_shape if idx == 0 else None, add_batch_norm))
@@ -175,7 +177,8 @@ class NeuralNetwork:
                     pool_size = tuple(pool_size)
                 else:
                     pool_size = 2
-            add_batch_norm = conv_layer_info['add_batch_norm'] if 'add_batch_norm' in conv_layer_info else self.enable_normalization
+            add_batch_norm = conv_layer_info[
+                'add_batch_norm'] if 'add_batch_norm' in conv_layer_info else self.enable_normalization
             self.network_layers.append(
                 ConvNetworkLayer(num_dimensions, num_filters, kernel_size, strides, is_transpose, activation_function,
                                  kernel_initializer, bias_initializer, use_bias, padding,
@@ -188,4 +191,3 @@ class NeuralNetwork:
 
     def set_weights(self, weights):
         self.model.set_weights(weights)
-

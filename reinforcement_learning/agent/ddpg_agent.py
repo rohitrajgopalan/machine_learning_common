@@ -63,7 +63,7 @@ class DDPGAgent(Agent):
         rewards = np.zeros((len(experiences)))
         terminals = np.zeros((len(experiences)))
         for batch_idx, experience in enumerate(experiences):
-            s, a, s_, r, terminal = experience
+            s, a, s_, r, terminal, _ = experience
             states[batch_idx] = s if self.state_type == np.ndarray else np.array([s])
             action = self.actions[a]
             actions[batch_idx] = action if self.action_type == np.ndarray else np.array([action])
@@ -85,14 +85,16 @@ class DDPGAgent(Agent):
             critic_value = self.critic_network.q_values(states, actions)
             critic_loss = tf.math.reduce_mean(tf.math.square(y - critic_value))
 
-        self.critic_network.generate_and_apply_gradients(critic_loss, tape)
+        critic_gradients = tape.gradient(critic_loss, self.critic_network.model.trainable_variables)
+        self.critic_network.apply_gradients(critic_gradients)
 
         with tf.GradientTape() as tape:
             actions = self.actor_network.actions(states)
             critic_value = self.critic_network.q_values(states, actions)
             actor_loss = -tf.math.reduce_mean(critic_value)
 
-        self.actor_network.generate_and_apply_gradients(actor_loss, tape)
+        actor_gradients = tape.gradient(actor_loss, self.actor_network.model.model.trainable_variables)
+        self.actor_network.apply_gradients(actor_gradients)
         self.actor_network.update_target()
         self.critic_network.update_target()
 

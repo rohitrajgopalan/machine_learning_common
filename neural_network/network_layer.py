@@ -15,12 +15,12 @@ class NetworkLayer:
         self.use_bias = use_bias
         self.input_shape = input_shape
         self.add_batch_norm = add_batch_norm
-        self.build_layer()
+        self.build_keras()
 
-    def build_layer(self):
+    def build_keras(self):
         pass
 
-    def get_layer(self, inp=None):
+    def get_keras(self, inp=None):
         pass
 
 
@@ -53,7 +53,7 @@ class ConvNetworkLayer(NetworkLayer):
         super().__init__(activation_function, kernel_initializer, bias_initializer, use_bias, input_shape,
                          add_batch_norm)
 
-    def build_layer(self):
+    def build_keras(self):
         if self.input_shape is None:
             if self.is_transpose:
                 if self.num_dimensions == 2:
@@ -126,7 +126,7 @@ class ConvNetworkLayer(NetworkLayer):
                                                         use_bias=self.use_bias, padding=self.padding,
                                                         input_shape=self.input_shape)
 
-    def get_layer(self, inp=None):
+    def get_keras(self, inp=None):
         if inp is None and self.input_shape is not None:
             inp = tf.keras.layers.Input(shape=self.input_shape)
 
@@ -198,7 +198,7 @@ class MaxPoolLayer(NetworkLayer):
         assert self.padding in ['same', 'valid']
         super().__init__(add_batch_norm=add_batch_norm)
 
-    def build_layer(self):
+    def build_keras(self):
         if self.num_dimensions == 1:
             self.layer = tf.keras.layers.MaxPool1D(self.pool_size, self.strides, self.padding)
         elif self.num_dimensions == 2:
@@ -206,7 +206,7 @@ class MaxPoolLayer(NetworkLayer):
         elif self.num_dimensions == 3:
             self.layer = tf.keras.layers.MaxPool3D(self.pool_size, self.strides, self.padding)
 
-    def get_layer(self, inp=None):
+    def get_keras(self, inp=None):
         if inp is None:
             return None
         else:
@@ -234,7 +234,7 @@ class DenseNetworkLayer(NetworkLayer):
         super().__init__(activation_function, kernel_initializer, bias_initializer, use_bias, input_shape,
                          add_batch_norm)
 
-    def build_layer(self):
+    def build_keras(self):
         if self.input_shape is None:
             self.layer = tf.keras.layers.Dense(self.num_units,
                                                activation=None if self.activation_function is None else self.activation_function.name.lower(),
@@ -249,7 +249,7 @@ class DenseNetworkLayer(NetworkLayer):
                                                use_bias=self.use_bias,
                                                input_shape=self.input_shape)
 
-    def get_layer(self, inp=None):
+    def get_keras(self, inp=None):
         if inp is None and self.input_shape is not None:
             inp = tf.keras.layers.Input(shape=self.input_shape)
 
@@ -268,10 +268,10 @@ class DenseNetworkLayer(NetworkLayer):
 
 
 class FlattenNetworkLayer(NetworkLayer):
-    def build_layer(self):
+    def build_keras(self):
         self.layer = tf.keras.layers.Flatten()
 
-    def get_layer(self, inp=None):
+    def get_keras(self, inp=None):
         if inp is None:
             return None
         else:

@@ -28,6 +28,7 @@ class Agent:
     next_state = None
 
     initial_action = -1
+    initial_action_prob = 0
     actual_action = -1
 
     experienced_states = []
@@ -119,6 +120,7 @@ class Agent:
         self.experienced_samples_columns.append('REWARD')
         self.experienced_samples_columns.append('DONE?')
         self.action_blocking_data_columns.append('BLOCKED?')
+        self.experienced_samples_columns.append('INITIAL_ACTION_PROB')
 
         if len(actions_csv_file) > 0:
             self.load_actions_from_csv(actions_csv_file)
@@ -275,13 +277,7 @@ class Agent:
             self.did_block_action = False
 
     def step(self, r1, r2, should_action_be_blocked=False):
-        if self.did_block_action:
-            r = r2 * -1
-        else:
-            r = r1
-        if self.algorithm is not None:
-            self.algorithm.policy.update(self.initial_action, should_action_be_blocked, state=self.current_state,
-                                         td_error=self.get_immediate_target_error(r))
+        r = -r2 if self.did_block_action else r1
 
         self.add_to_supervised_learning(should_action_be_blocked)
         self.add_state(self.current_state)
@@ -294,6 +290,7 @@ class Agent:
 
     def post_step_process(self, r):
         self.replay_buffer.append(self.current_state, self.initial_action, self.next_state, r, 1 - int(self.active),
+                                  self.initial_action_prob,
                                   target_error=self.get_immediate_target_error(r))
         if self.replay_buffer.size() >= self.replay_buffer.minibatch_size:
             self.n_update_steps += 1
@@ -330,7 +327,7 @@ class Agent:
             else:
                 for i in range(self.action_dim):
                     new_data.update({'INITIAL_ACTION_VAR{0}'.format(i + 1): action[0, i]})
-        new_data.update({'REWARD': r, 'DONE?': 1 - int(self.active)})
+        new_data.update({'REWARD': r, 'DONE?': 1 - int(self.active), 'INITIAL_ACTION_PROB': self.initial_action_prob})
         try:
             self.experienced_samples = self.experienced_samples.append(new_data, ignore_index=True)
         except MemoryError:
@@ -435,6 +432,7 @@ class Agent:
                     self.initial_action = a_index
                 reward = float(row['REWARD'])
                 self.active = int(row['DONE?']) == 0
+                self.initial_action_prob = float(row['INITIAL_ACTION_PROB'])
                 self.post_step_process(reward)
 
     def get_target_error(self, s, a, s_, r, active):

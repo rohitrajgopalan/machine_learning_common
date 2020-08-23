@@ -1,76 +1,69 @@
-from .policy import Policy
-from neural_network.neural_network import NeuralNetwork
-from neural_network.network_types import *
 import numpy as np
+import tensorflow as tf
+
+from neural_network.keras_neural_network import KerasNeuralNetwork
+from .policy import Policy
 
 
 class NetworkPolicy(Policy):
-    network = None
+    policy_network = None
+    use_td_error_in_function = False
 
     def __init__(self, args):
         super().__init__(args)
+        super().__init__(args)
+        self.action_dim = args['action_dim'] if 'action_dim' in args else 0
         network_args = args['network_args'] if 'network_args' in args else {}
-        state_dim = args['state_dim'] if 'state_dim' in args else 0
-        optimizer_type = args['optimizer_type'] if 'optimizer_type' in args else NetworkOptimizer.ADAM
-        optimizer_args = args['optimizer_args'] if 'optimizer_args' in args else {}
-        if type(state_dim) == tuple and len(state_dim) > 1:
-            add_pooling = args['add_pooling'] if 'add_pooling' in args else False
-            convert_to_grayscale = args['convert_to_grayscale'] if 'convert_to_grayscale' in args else False
+        self.use_td_error_in_function = args[
+            'use_td_error_in_function'] if 'use_td_error_in_function' in args else False
+        network_args.update({'num_outputs': self.num_actions})
+        if self.use_td_error_in_function:
+            pass
         else:
-            add_pooling = False
-            convert_to_grayscale = False
+            network_args.update({'loss_function': 'categorical_crossentropy'})
+        self.policy_network = KerasNeuralNetwork(network_args)
 
-        if network_args == {}:
-            network_args = {
-                'optimizer_type': optimizer_type,
-                'optimizer_args': optimizer_args,
-                'num_inputs' if type(state_dim) == int else 'input_shape': state_dim,
-                'num_outputs': self.num_actions,
-                'loss_function': 'categorical_crossentropy',
-                'dense_layer_info_list': [
-                    {'activation_function': NetworkActivationFunction.RELU,
-                     'num_units': 'auto'},
-                    {'activation_function': NetworkActivationFunction.SOFTMAX}
-                ]
-            }
-            if type(state_dim) == tuple and len(state_dim) > 1:
-                network_args.update({'add_pooling': add_pooling,
-                                     'convert_to_grayscale': convert_to_grayscale,
-                                     'conv_layer_info_list': [
-                                         {'num_dimensions': 2, 'filters': 32, 'kernel_size': (8, 8), 'strides': 4,
-                                          'activation_function': NetworkActivationFunction.RELU},
-                                         {'num_dimensions': 2, 'filters': 64, 'kernel_size': (4, 4), 'strides': 2,
-                                          'activation_function': NetworkActivationFunction.RELU},
-                                         {'num_dimensions': 2, 'filters': 128, 'kernel_size': (3, 3), 'strides': 1,
-                                          'activation_function': NetworkActivationFunction.RELU}
-                                     ]})
+    def derive(self, state, **args):
+        if state is None:
+            action_probs = np.full(self.num_actions, 1 / self.num_actions)
         else:
-            if 'num_inputs' not in network_args or 'input_shape' not in network_args:
-                network_args.update({'num_inputs' if type(state_dim) == int else 'input_shape': state_dim})
-            if 'loss_function' not in network_args:
-                network_args.update({'loss_function': 'categorical_crossentropy'})
-            if type(state_dim) == tuple and len(state_dim) > 1:
-                if 'add_pooling' not in network_args:
-                    network_args.update({'add_pooling': add_pooling})
-                if 'convert_to_grayscale' not in network_args:
-                    network_args.update({'convert_to_grayscale': convert_to_grayscale})
-            network_args.update({'num_outputs': self.num_actions})
-        self.network = NeuralNetwork(network_args)
+            try:
+                action_probs = self.policy_network.predict(np.array([state]))[0]
+            except:
+                action_probs = np.full(self.num_actions, 1 / self.num_actions)
+        if not type(action_probs) == np.ndarray:
+            action_probs = action_probs.numpy()
+        if not np.sum(action_probs) == 1 or np.isnan(action_probs.any()):
+            action_probs = np.full(self.num_actions, 1 / self.num_actions)
+        return action_probs
 
-    def derive(self, state, network, use_target=False):
-        prediction = self.network.predict(np.array([state]))
-        return prediction.ravel()
-
-    def choose_action(self, state, network, use_target=False):
-        policy = self.derive(state, network, use_target)
-        return np.random.choice(self.num_actions, p=policy)
+    def choose_action(self, state, **args):
+        action_probs = self.derive(state)
+        chosen_action = np.random.choice(self.num_actions, p=action_probs)
+        picked_action_prob = action_probs[chosen_action]
+        return chosen_action, picked_action_prob
 
     def update(self, action, should_action_be_blocked=False, **args):
+        td_error = args['td_error'] if 'td_error' in args else 0
+        state = args['state'] if 'state' in args else None
+        assert state is not None
+        states = np.array([state])
+        if not type(td_error) == np.ndarray:
+            td_error = np.array([td_error]).reshape((-1, 1))
         action_one_hot = np.zeros(self.num_actions)
         action_one_hot[action] = 1
+        a_indices_one_hot = np.array([action_one_hot]).reshape((-1, self.num_actions))
 
-        advantages = args['td_error'] if 'td_error' in args else 0
-        state = args['state'] if 'state' in args else None
+        if self.use_td_error_in_function:
+            picked_action_prob = args['picked_action_prob'] if 'picked_action_prob' in args else 0
+            picked_action_probs = np.array([picked_action_prob]).reshape((-1, 1))
+            self.optimize_network(states, td_error, picked_action_probs=picked_action_probs)
+        else:
+            self.optimize_network(states, td_error, a_indices_one_hot=a_indices_one_hot)
 
-        assert state is not None
-        self.network.fit(np.array([state]), np.array([action_one_hot]), sample_weight=np.array([advantages]))
+    def optimize_network(self, states, td_error, **args):
+        if self.use_td_error_in_function:
+            pass
+        else:
+            a_indices_one_hot = args['a_indices_one_hot']
+            self.policy_network.fit(states, a_indices_one_hot, advantages=td_error)
