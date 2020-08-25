@@ -32,7 +32,8 @@ class SupervisedLearningHelper:
             cols.append(self.label)
             self.historical_data = load_from_directory(args['files_dir'], cols, concat=True,
                                                        sheet_name=args['sheet_name'] if 'sheet_name' in args else '',
-                                                       header_index=args['header_index'] if 'header_index' in args else 0)
+                                                       header_index=args['header_index']
+                                                       if 'header_index' in args else 0)
         if type(self.historical_data) == list:
             self.historical_data = pd.concat(self.historical_data, ignore_index=True)
 
@@ -72,29 +73,34 @@ class SupervisedLearningHelper:
 class ScikitLearnHelper(SupervisedLearningHelper):
     scaler = RobustScaler()
     normalizer = Normalizer()
+    choosing_method = ''
 
     def __init__(self, method_type, enable_scaling=False, enable_normalization=False, **args):
-        self.model = select_method(args['choosing_method'], method_type)
+        self.choosing_method = args['choosing_method']
+        self.model = select_method(args['choosing_method'], method_type, enable_normalization)
         super().__init__(method_type, enable_scaling, enable_normalization, **args)
 
     def fit(self, x, y):
         if self.enable_scaling:
             x = self.scaler.fit_transform(x)
-        if self.enable_normalization:
+        if self.enable_normalization \
+                and self.choosing_method not in ['Linear Regression', 'Ridge', 'Lasso', 'Elastic Net']:
             x = self.normalizer.fit_transform(x)
-        super().fit(x, y)
+        self.model.fit(x, y)
 
     def predict(self, inputs):
         if self.enable_scaling:
             inputs = self.scaler.transform(inputs)
-        if self.enable_normalization:
+        if self.enable_normalization \
+                and self.choosing_method not in ['Linear Regression', 'Ridge', 'Lasso', 'Elastic Net']:
             inputs = self.normalizer.transform(inputs)
-        return super().predict(inputs)
+        return self.model.predict(inputs)
 
 
 class DeepLearningHelper(SupervisedLearningHelper):
     def __init__(self, method_type, enable_scaling=False, enable_normalization=False, **args):
         dl_args = args['dl_args']
-        dl_args.update({'num_inputs': args['num_inputs'], 'num_outputs': 1, 'enable_scaling': enable_scaling, 'enable_normalization': enable_normalization})
+        dl_args.update({'num_inputs': args['num_inputs'], 'num_outputs': 1, 'enable_scaling': enable_scaling,
+                        'enable_normalization': enable_normalization})
         self.model = KerasNeuralNetwork(dl_args)
         super().__init__(method_type, enable_scaling, enable_normalization, **args)

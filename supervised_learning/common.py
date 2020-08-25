@@ -11,31 +11,36 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression, ElasticNet
 from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.naive_bayes import GaussianNB
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor, RadiusNeighborsRegressor
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.preprocessing import RobustScaler, Normalizer
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 warnings.filterwarnings('ignore')
-classifiers = {'Logistic Regression': LogisticRegression(),
+classifiers = {'Logistic Regression': LogisticRegression(n_jobs=-1),
                'Decision Tree': DecisionTreeClassifier(),
                'Support Vector Machine': SVC(gamma='auto', kernel='rbf'),
                'Linear Discriminant Analysis': LinearDiscriminantAnalysis(),
                'Quadratic Discriminant Analysis': QuadraticDiscriminantAnalysis(),
-               'Random Forest': RandomForestClassifier(),
-               'K-Nearest Neighbors': KNeighborsClassifier(),
+               'Random Forest': RandomForestClassifier(n_jobs=-1),
+               'K-Nearest Neighbors': KNeighborsClassifier(n_jobs=-1),
                'Bayes': GaussianNB(),
-               'Neural Network': MLPClassifier()}
+               'Neural Network': MLPClassifier(learning_rate='adaptive')}
 regressors = {'Linear Regression': LinearRegression(),
               'Decision Tree': DecisionTreeRegressor(),
+              'Decision Tree with Log2 Max Features': DecisionTreeRegressor(max_features='log2'),
+              'Decision Tree with Sqrt Max Features': DecisionTreeRegressor(max_features='sqrt'),
               'Support Vector Machine': SVR(gamma='auto', kernel='rbf'),
-              'Random Forest': RandomForestRegressor(),
-              'K-Nearest Neighbour': KNeighborsRegressor(),
+              'Random Forest': RandomForestRegressor(n_jobs=-1),
+              'Random Forest with Log2 Max Features': RandomForestRegressor(n_jobs=-1, max_features='log2'),
+              'Random Forest with Sqrt Max Features': RandomForestRegressor(n_jobs=-1, max_features='sqrt'),
+              'K-Nearest Neighbour': KNeighborsRegressor(n_jobs=-1),
               'Lasso': Lasso(),
               'Ridge': Ridge(),
               'Elastic Net': ElasticNet(),
-              'Neural Network': MLPRegressor()}
+              'Neural Network': MLPRegressor(learning_rate='adaptive'),
+              'Radius Neighbours': RadiusNeighborsRegressor(n_jobs=-1)}
 scoring_classifiers = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
 scoring_regressors = ['explained_variance', 'max_error', 'neg_mean_absolute_error', 'neg_mean_squared_error',
                       'neg_root_mean_squared_error', 'neg_median_absolute_error', 'r2']
@@ -190,7 +195,7 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
     return metrics_to_data, test_sizes
 
 
-def select_method(choosing_method, method_type):
+def select_method(choosing_method, method_type, enable_normalization=False):
     chosen_method = None
     methods = classifiers if method_type == MethodType.Classification else regressors
 
@@ -199,7 +204,16 @@ def select_method(choosing_method, method_type):
     else:
         for method_name in methods.keys():
             if method_name.lower() == choosing_method.lower():
-                chosen_method = methods[method_name]
+                if method_name == 'Linear Regression':
+                    chosen_method = LinearRegression(normalize=enable_normalization, n_jobs=-1)
+                elif method_name == 'Lasso':
+                    chosen_method = Lasso(normalize=enable_normalization)
+                elif method_name == 'Elastic Net':
+                    chosen_method = ElasticNet(normalize=enable_normalization)
+                elif method_name == 'Ridge':
+                    chosen_method = Ridge(normalize=enable_normalization)
+                else:
+                    chosen_method = methods[method_name]
                 break
     return chosen_method
 
