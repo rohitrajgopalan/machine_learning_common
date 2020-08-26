@@ -185,7 +185,7 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
     return metrics_to_data, test_sizes
 
 
-def select_method(choosing_method, method_type, enable_normalization=False):
+def select_method(choosing_method, method_type, use_grid_search=True):
     chosen_method = None
     methods = classifiers if method_type == MethodType.Classification else regressors
 
@@ -194,20 +194,13 @@ def select_method(choosing_method, method_type, enable_normalization=False):
     else:
         for method_name in methods.keys():
             if method_name.lower() == choosing_method.lower():
-                if method_name == 'Linear Regression':
-                    chosen_method = LinearRegression(normalize=enable_normalization, n_jobs=-1)
-                elif method_name == 'Lasso':
-                    chosen_method = Lasso(normalize=enable_normalization)
-                elif method_name == 'Elastic Net':
-                    chosen_method = ElasticNet(normalize=enable_normalization)
-                elif method_name == 'Ridge':
-                    chosen_method = Ridge(normalize=enable_normalization)
-                else:
-                    chosen_method = methods[method_name]
+                chosen_method = methods[method_name]
                 break
-    params = get_testable_parameters(chosen_method)
-    return set_up_gridsearch(chosen_method, params, method_type)
-
+    if use_grid_search:
+        params = get_testable_parameters(chosen_method)
+        return set_up_gridsearch(chosen_method, params, method_type)
+    else:
+        return chosen_method
 
 def randomly_select_method(methods):
     key = random.choice(list(methods.keys()))
@@ -216,7 +209,7 @@ def randomly_select_method(methods):
 
 def set_up_gridsearch(method, params, method_type):
     if not bool(params):
-        return GridSearchCV(method, param_grid=params, cv=5, scoring='neg_mean_squared_error' if method_type == MethodType.Regression else 'accuracy')
+        return GridSearchCV(method, param_grid=params, cv=5, scoring='neg_mean_squared_error' if method_type == MethodType.Regression else 'accuracy', verbose=1, n_jobs=-1)
     else:
         return method
 
