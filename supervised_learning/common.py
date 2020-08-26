@@ -8,13 +8,14 @@ import numpy as np
 import pandas as pd
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression, ElasticNet
-from sklearn.model_selection import cross_validate, train_test_split
+from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression, ElasticNet, SGDRegressor, \
+    HuberRegressor
+from sklearn.model_selection import cross_validate, train_test_split, GridSearchCV
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor, RadiusNeighborsRegressor
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.preprocessing import RobustScaler, Normalizer
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 warnings.filterwarnings('ignore')
@@ -26,21 +27,18 @@ classifiers = {'Logistic Regression': LogisticRegression(n_jobs=-1),
                'Random Forest': RandomForestClassifier(n_jobs=-1),
                'K-Nearest Neighbors': KNeighborsClassifier(n_jobs=-1),
                'Bayes': GaussianNB(),
-               'Neural Network': MLPClassifier(learning_rate='adaptive')}
-regressors = {'Linear Regression': LinearRegression(),
+               'Neural Network': MLPClassifier()}
+regressors = {'Linear Regression': LinearRegression(n_jobs=-1),
               'Decision Tree': DecisionTreeRegressor(),
-              'Decision Tree with Log2 Max Features': DecisionTreeRegressor(max_features='log2'),
-              'Decision Tree with Sqrt Max Features': DecisionTreeRegressor(max_features='sqrt'),
-              'Support Vector Machine': SVR(gamma='auto', kernel='rbf'),
               'Random Forest': RandomForestRegressor(n_jobs=-1),
-              'Random Forest with Log2 Max Features': RandomForestRegressor(n_jobs=-1, max_features='log2'),
-              'Random Forest with Sqrt Max Features': RandomForestRegressor(n_jobs=-1, max_features='sqrt'),
               'K-Nearest Neighbour': KNeighborsRegressor(n_jobs=-1),
               'Lasso': Lasso(),
               'Ridge': Ridge(),
               'Elastic Net': ElasticNet(),
-              'Neural Network': MLPRegressor(learning_rate='adaptive'),
-              'Radius Neighbours': RadiusNeighborsRegressor(n_jobs=-1)}
+              'Neural Network': MLPRegressor(),
+              'Radius Neighbours': RadiusNeighborsRegressor(n_jobs=-1),
+              'SGD': SGDRegressor(),
+              'Huber': HuberRegressor()}
 scoring_classifiers = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
 scoring_regressors = ['explained_variance', 'max_error', 'neg_mean_absolute_error', 'neg_mean_squared_error',
                       'neg_root_mean_squared_error', 'neg_median_absolute_error', 'r2']
@@ -104,28 +102,20 @@ def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_
     return train_x, train_y, test_x, test_y
 
 
-def load_from_directory(files_dir, cols=[], concat=False, sheet_name='', header_index=0, cols_to_types={}):
+def load_from_directory(files_dir, cols=[], concat=False, sheet_name='', header_index=0):
     data_files = [join(files_dir, f) for f in listdir(files_dir) if
                   isfile(join(files_dir, f))]
     df_from_each_file = []
     for f in data_files:
         df = None
         if f.endswith(".csv"):
-            if not bool(cols_to_types):
-                df = pd.read_csv(f, usecols=cols, dtype=cols_to_types)
-            else:
-                df = pd.read_csv(f, usecols=cols)
+            df = pd.read_csv(f, usecols=cols)
         elif f.endswith(".xls") or f.endswith(".xlsx"):
-            if not bool(cols_to_types):
-                if len(sheet_name) > 0:
-                    df = pd.read_excel(f, sheet_name=sheet_name, header=header_index, usecols=cols, dtype=cols_to_types)
-                else:
-                    df = pd.read_excel(f, usecols=cols, dtype=cols_to_types)
+            if len(sheet_name) > 0:
+                df = pd.read_excel(f, sheet_name=sheet_name, header=header_index, usecols=cols)
             else:
-                if len(sheet_name) > 0:
-                    df = pd.read_excel(f, sheet_name=sheet_name, header=header_index, usecols=cols)
-                else:
-                    df = pd.read_excel(f, usecols=cols)
+                df = pd.read_excel(f, usecols=cols)
+        df = df.dropna()
         if df is None:
             continue
         df_from_each_file.append(df)
@@ -215,9 +205,53 @@ def select_method(choosing_method, method_type, enable_normalization=False):
                 else:
                     chosen_method = methods[method_name]
                 break
-    return chosen_method
+    params = get_testable_parameters(chosen_method)
+    return set_up_gridsearch(chosen_method, params, method_type)
 
 
 def randomly_select_method(methods):
     key = random.choice(list(methods.keys()))
     return methods[key]
+
+
+def set_up_gridsearch(method, params, method_type):
+    if not bool(params):
+        return GridSearchCV(method, param_grid=params, cv=5, scoring='neg_mean_squared_error' if method_type == MethodType.Regression else 'accuracy')
+    else:
+        return method
+
+
+def get_testable_parameters(method_name):
+    if method_name == 'Linear Regression':
+        return {'normalize': [True, False]}
+    elif method_name in ['Decision Tree', 'Random Forest']:
+        return {'max_features': ['auto', 'log2', 'sqrt']}
+    elif method_name in ['Lasso', 'Ridge']:
+        return {'normalize': [True, False],
+                'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4]}
+    elif method_name == 'Huber':
+        return {'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]}
+    elif method_name == 'Elastic Net':
+        return {'normalize': [True, False],
+                'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'l1_ratio': list(np.arange(0, 1, 0.05))}
+    elif method_name == 'Neural Network':
+        return {'activation': ['identity', 'logistic', 'tanh', 'relu'],
+                'learning_rate': ['adaptive', 'invscaling', 'constant'],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'solver': ['lbfgs', 'sgd', 'adam'],
+                'hidden_layer_sizes': [(400,), (400, 400), (400, 400, 400), (400, 400, 400, 400)]}
+    elif method_name in ['K-Nearest Neighbour', 'Radius Neighbours']:
+        return {'weights': ['uniform', 'distance'],
+                'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']}
+    elif method_name == 'SGD':
+        return {'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'penalty': ['l1', 'l2', 'elasticnet'],
+                'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+                'l1_ratio': list(np.arange(0, 1, 0.05)),
+                'learning_rate': ['adaptive', 'invscaling', 'constant', 'optimal']}
+    else:
+        return {}
