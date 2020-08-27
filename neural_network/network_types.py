@@ -63,13 +63,11 @@ class NetworkActivationFunction(enum.Enum):
 
 class NetworkOptimizer(enum.Enum):
     ADAM = 1,
-    ADAMAX = 2,
-    NADAM = 3,
-    RMSPROP = 4,
+    ADAMAX = 2
 
     @staticmethod
     def all():
-        return [NetworkOptimizer.ADAM, NetworkOptimizer.ADAMAX, NetworkOptimizer.RMSPROP, NetworkOptimizer.NADAM]
+        return [NetworkOptimizer.ADAM, NetworkOptimizer.ADAMAX]
 
     @staticmethod
     def get_type_by_name(name):

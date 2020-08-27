@@ -1,35 +1,30 @@
-import numpy as np
+import collections
+
 from sklearn.preprocessing import RobustScaler, Normalizer
 
 from .network_layer import *
 from .network_types import NetworkOptimizer
 
 
-class KerasNeuralNetwork:
+class TorchNeuralNetwork(T.nn.Module):
     model = None
     network_layers = None
     optimizer = None
-    loss_function = None
     enable_scaling = False
     enable_normalization = False
     scaler = RobustScaler()
     normalizer = Normalizer()
-    use_gradients = False
-    is_sequential = True
     input_shape = None
     num_inputs = 0
     num_outputs = 0
     convert_to_grayscale = False
     add_pooling = False
-    using_keras = False
 
     def __init__(self, args):
+        super(TorchNeuralNetwork, self).__init__()
         self.network_layers = []
         self.convert_to_grayscale = args['convert_to_grayscale'] if 'convert_to_grayscale' in args else False
         self.add_pooling = args['add_pooling'] if 'add_pooling' in args else False
-        self.is_sequential = args['is_sequential'] if 'is_sequential' in args else True
-        self.use_gradients = args['use_gradients'] if 'use_gradients' in args else False
-        self.using_keras = args['using_keras'] if 'using_keras' in args else False
         if 'num_inputs' in args:
             self.num_inputs = args['num_inputs']
             self.input_shape = (self.num_inputs,)
@@ -46,10 +41,6 @@ class KerasNeuralNetwork:
         else:
             optimizer_type = None
         optimizer_args = args['optimizer_args'] if 'optimizer_args' in args else {}
-        if optimizer_type is not None:
-            self.optimizer_init(optimizer_type, optimizer_args)
-        if 'loss_function' in args:
-            self.loss_function = args['loss_function']
         self.enable_scaling = args['enable_scaling'] if 'enable_scaling' in args else False
         self.enable_normalization = args['enable_normalization'] if 'enable_normalization' in args else False
         if 'conv_layer_info_list' in args:
@@ -58,64 +49,8 @@ class KerasNeuralNetwork:
         if 'dense_layer_info_list' in args:
             self.parse_dense_layer_info(args['dense_layer_info_list'])
         self.build_model()
-
-    def build_model(self):
-        if self.use_gradients or len([network_layer for network_layer in self.network_layers if network_layer.add_batch_norm]) > 0:
-            self.is_sequential = False
-        if self.is_sequential:
-            self.model = tf.keras.models.Sequential()
-            for network_layer in self.network_layers:
-                self.model.add(network_layer.layer)
-            self.model.compile(self.optimizer, loss=self.loss_function)
-        else:
-            input_layer = tf.keras.layers.Input(shape=self.input_shape)
-            if self.convert_to_grayscale:
-                input_layer = tf.keras.layers.Lambda(lambda img: img / 255.0)(input_layer)
-            output = input_layer
-            for network_layer in self.network_layers:
-                output = network_layer.get_keras(inp=output)
-            else:
-                self.model = tf.keras.Model(input_layer, output)
-        if not self.use_gradients and self.loss_function is not None:
-            self.model.compile(self.optimizer, loss=self.loss_function)
-
-    def optimizer_init(self, optimizer_type, optimizer_args):
-        learning_rate = optimizer_args['learning_rate'] if 'learning_rate' in optimizer_args else 0.001
-        beta_m = optimizer_args['beta_m'] if 'beta_m' in optimizer_args else 0.9
-        beta_v = optimizer_args['beta_v'] if 'beta_v' in optimizer_args else 0.999
-        epsilon = optimizer_args['epsilon'] if 'epsilon' in optimizer_args else 1e-07
-
-        if optimizer_type == NetworkOptimizer.ADAMAX:
-            self.optimizer = tf.keras.optimizers.Adamax(learning_rate, beta_m, beta_v, epsilon)
-        else:
-            self.optimizer = tf.keras.optimizers.Adam(learning_rate, beta_m, beta_v, epsilon)
-
-    def predict(self, inputs):
-        if self.convert_to_grayscale and self.is_sequential:
-            inputs /= 255.0
-        if self.enable_scaling:
-            inputs = self.scaler.transform(inputs)
-        if self.is_sequential:
-            return self.model.predict(inputs)
-        else:
-            return self.model(inputs)
-
-    def fit(self, inputs, outputs, advantages=None):
-        if self.use_gradients:
-            pass
-        if self.convert_to_grayscale:
-            inputs /= 255.0
-        if self.enable_scaling:
-            inputs = self.scaler.fit_transform(inputs)
-        if advantages is None:
-            self.model.fit(inputs, outputs, epochs=1, verbose=0)
-        else:
-            self.model.fit(inputs, outputs, sample_weight=advantages, epochs=1, verbose=0)
-
-    def apply_gradients(self, gradients):
-        if not self.use_gradients:
-            pass
-        self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+        if optimizer_type is not None:
+            self.optimizer_init(optimizer_type, optimizer_args)
 
     def parse_dense_layer_info(self, dense_layer_info_list):
         for idx, dense_layer_info in enumerate(dense_layer_info_list):
@@ -142,7 +77,7 @@ class KerasNeuralNetwork:
                 'add_batch_norm'] if 'add_batch_norm' in dense_layer_info else self.enable_normalization
             self.network_layers.append(
                 DenseNetworkLayer(num_units, activation_function, kernel_initializer, bias_initializer, use_bias,
-                                  self.input_shape if idx == 0 else None, add_batch_norm))
+                                  self.input_shape if idx == 0 else None, add_batch_norm, False))
 
     def parse_conv_layer_info(self, conv_layer_info_list):
         for idx, conv_layer_info in enumerate(conv_layer_info_list):
@@ -178,12 +113,43 @@ class KerasNeuralNetwork:
             self.network_layers.append(
                 ConvNetworkLayer(num_dimensions, num_filters, kernel_size, strides, is_transpose, activation_function,
                                  kernel_initializer, bias_initializer, use_bias, padding,
-                                 self.input_shape if idx == 0 else None, add_batch_norm, self.add_pooling, pool_size))
-            if self.add_pooling and self.is_sequential:
-                self.network_layers.append(MaxPoolLayer(num_dimensions, pool_size, strides, padding))
+                                 self.input_shape if idx == 0 else None, add_batch_norm, self.add_pooling, pool_size,
+                                 False))
 
-    def get_weights(self):
-        return self.model.get_weights()
+    def build_model(self):
+        num_input_channels = 1
+        model_dict = collections.OrderedDict()
+        for i, network_layer in enumerate(self.network_layers):
+            layer = network_layer.get_torch(num_input_channels=num_input_channels)
+            for key in layer:
+                model_dict['{0}{1}'.format(key, i+1)] = layer[key]
+            if type(network_layer) == ConvNetworkLayer:
+                num_input_channels = network_layer.num_filters
+        self.model = T.nn.Sequential(model_dict)
 
-    def set_weights(self, weights):
-        self.model.set_weights(weights)
+    def optimizer_init(self, optimizer_type, optimizer_args):
+        learning_rate = optimizer_args['learning_rate'] if 'learning_rate' in optimizer_args else 0.001
+        beta_m = optimizer_args['beta_m'] if 'beta_m' in optimizer_args else 0.9
+        beta_v = optimizer_args['beta_v'] if 'beta_v' in optimizer_args else 0.999
+        epsilon = optimizer_args['epsilon'] if 'epsilon' in optimizer_args else 1e-07
+
+        if optimizer_type == NetworkOptimizer.ADAMAX:
+            self.optimizer = T.optim.Adamax(self.parameters(), learning_rate, (beta_m, beta_v), epsilon)
+        else:
+            self.optimizer = T.optim.Adamax(self.parameters(), learning_rate, (beta_m, beta_v), epsilon)
+
+    def predict(self, inputs):
+        if self.convert_to_grayscale:
+            inputs /= 255.0
+        if self.enable_scaling:
+            inputs = self.scaler.transform(inputs)
+        outputs = self.model(T.as_tensor(inputs, dtype=T.float))
+        return outputs.detach().numpy()
+
+    def update(self, loss):
+        self.eval()
+        self.train()
+        self.optimizer.zero_grad()
+        loss = T.tensor(loss, requires_grad=True)
+        loss.backward()
+        self.optimizer.step()

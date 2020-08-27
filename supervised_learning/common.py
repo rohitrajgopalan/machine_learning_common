@@ -102,19 +102,28 @@ def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_
     return train_x, train_y, test_x, test_y
 
 
-def load_from_directory(files_dir, cols=[], concat=False, sheet_name='', header_index=0):
+def load_from_directory(files_dir, cols=[], concat=False, sheet_name='', header_index=0, cols_to_types={}):
     data_files = [join(files_dir, f) for f in listdir(files_dir) if
                   isfile(join(files_dir, f))]
     df_from_each_file = []
     for f in data_files:
         df = None
         if f.endswith(".csv"):
-            df = pd.read_csv(f, usecols=cols)
-        elif f.endswith(".xls") or f.endswith(".xlsx"):
-            if len(sheet_name) > 0:
-                df = pd.read_excel(f, sheet_name=sheet_name, header=header_index, usecols=cols)
+            if not bool(cols_to_types):
+                df = pd.read_csv(f, usecols=cols, dtype=cols_to_types)
             else:
-                df = pd.read_excel(f, usecols=cols)
+                df = pd.read_csv(f, usecols=cols)
+        elif f.endswith(".xls") or f.endswith(".xlsx"):
+            if not bool(cols_to_types):
+                if len(sheet_name) > 0:
+                    df = pd.read_excel(f, sheet_name=sheet_name, header=header_index, usecols=cols, dtype=cols_to_types)
+                else:
+                    df = pd.read_excel(f, usecols=cols, dtype=cols_to_types)
+            else:
+                if len(sheet_name) > 0:
+                    df = pd.read_excel(f, sheet_name=sheet_name, header=header_index, usecols=cols)
+                else:
+                    df = pd.read_excel(f, usecols=cols)
         df = df.dropna()
         if df is None:
             continue

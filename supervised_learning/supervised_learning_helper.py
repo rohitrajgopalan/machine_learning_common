@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.preprocessing import RobustScaler, Normalizer
-from sklearn.model_selection import GridSearchCV
+
 from neural_network.keras_neural_network import KerasNeuralNetwork
 from .common import select_method, load_from_directory
 
@@ -73,11 +73,8 @@ class SupervisedLearningHelper:
 class ScikitLearnHelper(SupervisedLearningHelper):
     scaler = RobustScaler()
     normalizer = Normalizer()
-    choosing_method = ''
-    best_parameters = {}
 
     def __init__(self, method_type, enable_scaling=False, enable_normalization=False, **args):
-        self.choosing_method = args['choosing_method']
         use_grid_search = args['use_grid_search'] if 'use_grid_search' in args else False
         self.model = select_method(args['choosing_method'], method_type, use_grid_search)
         super().__init__(method_type, enable_scaling, enable_normalization, **args)
@@ -85,20 +82,14 @@ class ScikitLearnHelper(SupervisedLearningHelper):
     def fit(self, x, y):
         if self.enable_scaling:
             x = self.scaler.fit_transform(x)
-        if self.enable_normalization \
-                and self.choosing_method not in ['Linear Regression', 'Ridge', 'Lasso', 'Elastic Net']:
+        if self.enable_normalization:
             x = self.normalizer.fit_transform(x)
-        if isinstance(self.model, GridSearchCV):
-            grid_result = self.model.fit(x, y)
-            self.best_parameters = grid_result.best_params_
-        else:
-            self.model.fit(x, y)
+        self.model.fit(x, y)
 
     def predict(self, inputs):
         if self.enable_scaling:
             inputs = self.scaler.transform(inputs)
-        if self.enable_normalization \
-                and self.choosing_method not in ['Linear Regression', 'Ridge', 'Lasso', 'Elastic Net']:
+        if self.enable_normalization:
             inputs = self.normalizer.transform(inputs)
         return self.model.predict(inputs)
 

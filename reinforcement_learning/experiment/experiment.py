@@ -274,6 +274,7 @@ class Experiment:
         random_seed = specifics['seed'] if 'seed' in specifics else 0
         action_blocking_dl_args = specifics[
             'action_blocking_dl_args'] if 'action_blocking_dl_args' in specifics else None
+        policy_network_args = specifics['policy_network_args'] if 'policy_network_args' in specifics else None
         run_info = {'environment': environment,
                     'num_episodes': num_episodes,
                     'random_seed': random_seed}
@@ -314,6 +315,8 @@ class Experiment:
                     action_network_args.update({'optimizer_type': optimizer_type})
                     if action_blocking_dl_args is not None:
                         action_blocking_dl_args['optimizer_type'] = optimizer_type
+                    if policy_network_args is not None:
+                        policy_network_args['optimizer_type'] = optimizer_type
                     optimizer_args = {}
                     for learning_rate in optimizer_hyper_parameters['alphas']:
                         optimizer_args['learning_rate'] = learning_rate
@@ -327,6 +330,8 @@ class Experiment:
                                     action_network_args['optimizer_args'] = optimizer_args
                                     if action_blocking_dl_args is not None:
                                         action_blocking_dl_args['optimizer_args'] = optimizer_args
+                                    if policy_network_args is not None:
+                                        policy_network_args['optimizer_args'] = optimizer_args
                                     run_info.update({'action_network_args': action_network_args,
                                                      'action_blocking_dl_args': action_blocking_dl_args})
                                     for algorithm_name in chosen_algorithms:
@@ -339,6 +344,9 @@ class Experiment:
                                                 run_info['policy_name'] = policy_name
                                                 policy_args = {'random_seed': random_seed,
                                                                'min_penalty': environment.min_penalty}
+                                                if policy_name == 'network':
+                                                    assert policy_network_args is not None
+                                                    policy_args.update({'network_args': policy_network_args})
                                                 policy_hyper_parameter_list = [0]
                                                 hyper_parameter_type = ''
                                                 if policy_name == 'epsilon_greedy':
