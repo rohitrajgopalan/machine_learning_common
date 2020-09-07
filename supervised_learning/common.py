@@ -211,6 +211,7 @@ def select_method(choosing_method, method_type, use_grid_search=True):
     else:
         return chosen_method
 
+
 def randomly_select_method(methods):
     key = random.choice(list(methods.keys()))
     return methods[key]
@@ -218,7 +219,9 @@ def randomly_select_method(methods):
 
 def set_up_gridsearch(method, params, method_type):
     if not bool(params):
-        return GridSearchCV(method, param_grid=params, cv=5, scoring='neg_mean_squared_error' if method_type == MethodType.Regression else 'accuracy', verbose=1, n_jobs=-1)
+        return GridSearchCV(method, param_grid=params, cv=5,
+                            scoring='neg_mean_squared_error' if method_type == MethodType.Regression else 'accuracy',
+                            verbose=0, n_jobs=-1)
     else:
         return method
 
@@ -241,11 +244,23 @@ def get_testable_parameters(method_name):
                 'tol': [1e-1, 1e-2, 1e-3, 1e-4],
                 'l1_ratio': list(np.arange(0, 1, 0.05))}
     elif method_name == 'Neural Network':
+        hidden_layer_sizes = []
+        for num_hidden_layers in range(1, 6):
+            hls = [0] * num_hidden_layers
+            for num_hidden_units in [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]:
+                for i in range(num_hidden_layers):
+                    hls[i] = num_hidden_units
+                hidden_layer_sizes.append(tuple(hls))
+
         return {'activation': ['identity', 'logistic', 'tanh', 'relu'],
                 'learning_rate': ['adaptive', 'invscaling', 'constant'],
+                'learning_rate_init': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.5, 0.1, 0.5, 1],
+                'max_iter': [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 5000, 10000],
+                'momentum': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+                'epsilon': [1e-4, 1e-5, 1e-6, 1e-7, 1e-8],
                 'tol': [1e-1, 1e-2, 1e-3, 1e-4],
                 'solver': ['lbfgs', 'sgd', 'adam'],
-                'hidden_layer_sizes': [(400,), (400, 400), (400, 400, 400), (400, 400, 400, 400)]}
+                'hidden_layer_sizes': hidden_layer_sizes}
     elif method_name in ['K-Nearest Neighbour', 'Radius Neighbours']:
         return {'weights': ['uniform', 'distance'],
                 'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']}
