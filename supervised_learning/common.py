@@ -9,25 +9,24 @@ import pandas as pd
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression, ElasticNet, SGDRegressor, \
-    HuberRegressor
+    HuberRegressor, RidgeClassifier, SGDClassifier
 from sklearn.model_selection import cross_validate, train_test_split, GridSearchCV
-from sklearn.naive_bayes import GaussianNB
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor, RadiusNeighborsRegressor
-from sklearn.neural_network import MLPRegressor, MLPClassifier
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor, RadiusNeighborsRegressor, \
+    RadiusNeighborsClassifier, NearestCentroid
 from sklearn.preprocessing import RobustScaler, Normalizer
-from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 warnings.filterwarnings('ignore')
 classifiers = {'Logistic Regression': LogisticRegression(n_jobs=-1),
                'Decision Tree': DecisionTreeClassifier(),
-               'Support Vector Machine': SVC(gamma='auto', kernel='rbf'),
                'Linear Discriminant Analysis': LinearDiscriminantAnalysis(),
                'Quadratic Discriminant Analysis': QuadraticDiscriminantAnalysis(),
                'Random Forest': RandomForestClassifier(n_jobs=-1),
                'K-Nearest Neighbors': KNeighborsClassifier(n_jobs=-1),
-               'Bayes': GaussianNB(),
-               'Neural Network': MLPClassifier()}
+               'Radius Neighbours': RadiusNeighborsClassifier(n_jobs=-1),
+               'Nearest Centroid': NearestCentroid(),
+               'Ridge': RidgeClassifier(),
+               'SGD': SGDClassifier()}
 regressors = {'Linear Regression': LinearRegression(n_jobs=-1),
               'Decision Tree': DecisionTreeRegressor(),
               'Random Forest': RandomForestRegressor(n_jobs=-1),
@@ -35,7 +34,6 @@ regressors = {'Linear Regression': LinearRegression(n_jobs=-1),
               'Lasso': Lasso(),
               'Ridge': Ridge(),
               'Elastic Net': ElasticNet(),
-              'Neural Network': MLPRegressor(),
               'Radius Neighbours': RadiusNeighborsRegressor(n_jobs=-1),
               'SGD': SGDRegressor(),
               'Huber': HuberRegressor()}
@@ -243,24 +241,6 @@ def get_testable_parameters(method_name):
                 'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
                 'tol': [1e-1, 1e-2, 1e-3, 1e-4],
                 'l1_ratio': list(np.arange(0, 1, 0.05))}
-    elif method_name == 'Neural Network':
-        hidden_layer_sizes = []
-        for num_hidden_layers in range(1, 6):
-            hls = [0] * num_hidden_layers
-            for num_hidden_units in [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]:
-                for i in range(num_hidden_layers):
-                    hls[i] = num_hidden_units
-                hidden_layer_sizes.append(tuple(hls))
-
-        return {'activation': ['identity', 'logistic', 'tanh', 'relu'],
-                'learning_rate': ['adaptive', 'invscaling', 'constant'],
-                'learning_rate_init': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.5, 0.1, 0.5, 1],
-                'max_iter': [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 5000, 10000],
-                'momentum': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-                'epsilon': [1e-4, 1e-5, 1e-6, 1e-7, 1e-8],
-                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
-                'solver': ['lbfgs', 'sgd', 'adam'],
-                'hidden_layer_sizes': hidden_layer_sizes}
     elif method_name in ['K-Nearest Neighbour', 'Radius Neighbours']:
         return {'weights': ['uniform', 'distance'],
                 'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']}
@@ -270,5 +250,23 @@ def get_testable_parameters(method_name):
                 'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
                 'l1_ratio': list(np.arange(0, 1, 0.05)),
                 'learning_rate': ['adaptive', 'invscaling', 'constant', 'optimal']}
+    elif method_name == 'Nearest Centroid':
+        return {'metric': ['euclidean', 'manhattan']}
+    elif method_name == 'Linear Discriminant Analysis':
+        return {'solver': ['svd', 'lsqr', 'eigen'],
+                'shrinkage': list(np.arange(0, 1, 0.05)),
+                'store_covariance': [True, False],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4]}
+    elif method_name == 'Quadratic Discriminant Analysis':
+        return {'reg_param': list(np.arange(0, 1, 0.05)),
+                'store_covariance': [True, False],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4]}
+    elif method_name == 'Logistic Regression':
+        return {'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'penalty': ['l1', 'l2', 'elasticnet', 'none'],
+                'dual': [True, False],
+                'fit_intercept': [True, False],
+                'solver': ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga'],
+                'l1_ratio': list(np.arange(0, 1, 0.05))}
     else:
         return {}
