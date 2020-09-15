@@ -15,6 +15,7 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor, RadiusN
     RadiusNeighborsClassifier, NearestCentroid
 from sklearn.preprocessing import RobustScaler, Normalizer
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.svm import SVR, LinearSVR, NuSVR, SVC, NuSVC, LinearSVC
 
 warnings.filterwarnings('ignore')
 classifiers = {'Logistic Regression': LogisticRegression(n_jobs=-1),
@@ -26,7 +27,10 @@ classifiers = {'Logistic Regression': LogisticRegression(n_jobs=-1),
                'Radius Neighbours': RadiusNeighborsClassifier(n_jobs=-1),
                'Nearest Centroid': NearestCentroid(),
                'Ridge': RidgeClassifier(),
-               'SGD': SGDClassifier()}
+               'SGD': SGDClassifier(),
+               'Nu-SVC': NuSVC(),
+               'Linear-SVC': LinearSVC(),
+               'SVC': SVC()}
 regressors = {'Linear Regression': LinearRegression(n_jobs=-1),
               'Decision Tree': DecisionTreeRegressor(),
               'Random Forest': RandomForestRegressor(n_jobs=-1),
@@ -36,7 +40,10 @@ regressors = {'Linear Regression': LinearRegression(n_jobs=-1),
               'Elastic Net': ElasticNet(),
               'Radius Neighbours': RadiusNeighborsRegressor(n_jobs=-1),
               'SGD': SGDRegressor(),
-              'Huber': HuberRegressor()}
+              'Huber': HuberRegressor(),
+              'Nu-SVR': NuSVR(),
+              'Linear-SVR': LinearSVR(),
+              'SVR': SVR()}
 scoring_classifiers = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
 scoring_regressors = ['explained_variance', 'max_error', 'neg_mean_absolute_error', 'neg_mean_squared_error',
                       'neg_root_mean_squared_error', 'neg_median_absolute_error', 'r2']
@@ -45,6 +52,12 @@ metrics_classifiers = ['Fitting time', 'Scoring time', 'Accuracy', 'Precision', 
 metrics_regressors = ['Explained Variance', 'Max Error', 'Mean Absolute Error', 'Mean Squared Error',
                       'Root Mean Squared Error',
                       'Median Absolute Error', 'R2 Score']
+
+
+class ScalingType(enum.Enum):
+    STANDARD = 1,
+    ROBUST = 2,
+    NONE = 3,
 
 
 class MethodType(enum.Enum):
@@ -268,5 +281,53 @@ def get_testable_parameters(method_name):
                 'fit_intercept': [True, False],
                 'solver': ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga'],
                 'l1_ratio': list(np.arange(0, 1, 0.05))}
+    elif method_name == 'SVC':
+        return {'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
+                'gamma': ['scale', 'auto'],
+                'shrinking': [True, False],
+                'probability': [True, False],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'cache_size': list(np.arange(100, 1000, 100)),
+                'decision_function': ['ovo', 'ovr'],
+                'break_ties': [True, False]}
+    elif method_name == 'SVR':
+        return {'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
+                'gamma': ['scale', 'auto'],
+                'shrinking': [True, False],
+                'epsilon': list(np.arange(0, 1, 0.05)),
+                'cache_size': list(np.arange(100, 1000, 100)),
+                'decision_function': ['ovo', 'ovr'],
+                'break_ties': [True, False]}
+    elif method_name == 'Nu-SVC':
+        return {'nu': list(np.arange(0, 1, 0.05)),
+                'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
+                'gamma': ['scale', 'auto'],
+                'shrinking': [True, False],
+                'probability': [True, False],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'cache_size': list(np.arange(100, 1000, 100)),
+                'decision_function': ['ovo', 'ovr'],
+                'break_ties': [True, False]}
+    elif method_name == 'Nu-SVR':
+        return {'nu': list(np.arange(0, 1, 0.05)),
+                'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
+                'gamma': ['scale', 'auto'],
+                'shrinking': [True, False],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'cache_size': list(np.arange(100, 1000, 100)),
+                'break_ties': [True, False]}
+    elif method_name == 'Linear-SVC':
+        return {'penalty': ['l1', 'l2'],
+                'loss': ['hinge', 'squared_hinge'],
+                'dual': [True, False],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'multi_class': ['ovr', 'crammer_singer'],
+                'fit_intercept': [True, False]}
+    elif method_name == 'Linear-SVR':
+        return {'epsilon': list(np.arange(0, 1, 0.05)),
+                'loss': ['epsilon_insensitive', 'squared_epsilon_insensitive'],
+                'dual': [True, False],
+                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                'fit_intercept': [True, False]}
     else:
         return {}

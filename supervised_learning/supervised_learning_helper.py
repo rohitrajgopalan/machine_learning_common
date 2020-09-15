@@ -1,8 +1,7 @@
 import pandas as pd
-from sklearn.preprocessing import RobustScaler, Normalizer
+from sklearn.preprocessing import RobustScaler, Normalizer, StandardScaler
 
-from neural_network.keras_neural_network import KerasNeuralNetwork
-from .common import select_method, load_from_directory
+from .common import select_method, load_from_directory, ScalingType
 
 
 class SupervisedLearningHelper:
@@ -13,12 +12,12 @@ class SupervisedLearningHelper:
     label = ''
     historical_data = None
     model = None
-    enable_scaling = False
+    scaling_type = None
     enable_normalization = False
 
-    def __init__(self, method_type, enable_scaling=False, enable_normalization=False, **args):
+    def __init__(self, method_type, enable_normalization=False, scaling_type=ScalingType.NONE, **args):
         self.method_type = method_type
-        self.enable_scaling = enable_scaling
+        self.scaling_type = scaling_type
         self.enable_normalization = enable_normalization
 
         cols = []
@@ -63,41 +62,33 @@ class SupervisedLearningHelper:
         return self.model.predict(inputs)
 
     @staticmethod
-    def choose_helper(method_type, enable_scaling=False, enable_normalization=False, **args):
-        if 'dl_args' in args and args['dl_args'] is not None:
-            return DeepLearningHelper(method_type, enable_scaling, enable_normalization, **args)
-        else:
-            return ScikitLearnHelper(method_type, enable_scaling, enable_normalization, **args)
+    def choose_helper(method_type, enable_normalization=False, scaling_type=ScalingType.NONE, **args):
+        return ScikitLearnHelper(method_type, enable_normalization, scaling_type, **args)
 
 
 class ScikitLearnHelper(SupervisedLearningHelper):
-    scaler = RobustScaler()
+    scaler = None
     normalizer = Normalizer()
 
-    def __init__(self, method_type, enable_scaling=False, enable_normalization=False, **args):
+    def __init__(self, method_type, enable_normalization=False, scaling_type=ScalingType.NONE, **args):
         use_grid_search = args['use_grid_search'] if 'use_grid_search' in args else False
         self.model = select_method(args['choosing_method'], method_type, use_grid_search)
-        super().__init__(method_type, enable_scaling, enable_normalization, **args)
+        if scaling_type == ScalingType.STANDARD:
+            self.scaler = StandardScaler()
+        elif scaling_type == ScalingType.ROBUST:
+            self.scaler = RobustScaler()
+        super().__init__(method_type, enable_normalization, scaling_type, **args)
 
     def fit(self, x, y):
-        if self.enable_scaling:
+        if self.scaler is not None:
             x = self.scaler.fit_transform(x)
         if self.enable_normalization:
             x = self.normalizer.fit_transform(x)
         self.model.fit(x, y)
 
     def predict(self, inputs):
-        if self.enable_scaling:
+        if self.scaler is not None:
             inputs = self.scaler.transform(inputs)
         if self.enable_normalization:
             inputs = self.normalizer.transform(inputs)
         return self.model.predict(inputs)
-
-
-class DeepLearningHelper(SupervisedLearningHelper):
-    def __init__(self, method_type, enable_scaling=False, enable_normalization=False, **args):
-        dl_args = args['dl_args']
-        dl_args.update({'num_inputs': args['num_inputs'], 'num_outputs': 1, 'enable_scaling': enable_scaling,
-                        'enable_normalization': enable_normalization})
-        self.model = KerasNeuralNetwork(dl_args)
-        super().__init__(method_type, enable_scaling, enable_normalization, **args)
