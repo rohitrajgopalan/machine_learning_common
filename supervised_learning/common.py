@@ -6,44 +6,40 @@ from os.path import join, isfile
 
 import numpy as np
 import pandas as pd
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression, ElasticNet, SGDRegressor, \
-    HuberRegressor, RidgeClassifier, SGDClassifier
+from sklearn.linear_model import LogisticRegression, Ridge, SGDRegressor, \
+    RidgeClassifier, SGDClassifier, LinearRegression
 from sklearn.model_selection import cross_validate, train_test_split, GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor, RadiusNeighborsRegressor, \
-    RadiusNeighborsClassifier, NearestCentroid
-from sklearn.preprocessing import RobustScaler, Normalizer
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+    RadiusNeighborsClassifier
+from sklearn.preprocessing import RobustScaler, Normalizer, StandardScaler
 from sklearn.svm import SVR, LinearSVR, NuSVR, SVC, NuSVC, LinearSVC
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.metrics import accuracy_score, mean_squared_error
 
 warnings.filterwarnings('ignore')
-classifiers = {'Logistic Regression': LogisticRegression(n_jobs=-1),
+method_names = ['Decision Tree', 'Random Forest', 'K-Nearest Neighbours', 'Radius Neighbours', 'Ridge', 'SGD', 'Nu-SVM',
+                'Linear-SVM', 'SVM']
+classifiers = {'Logistic Regression': LogisticRegression(),
                'Decision Tree': DecisionTreeClassifier(),
-               'Linear Discriminant Analysis': LinearDiscriminantAnalysis(),
-               'Quadratic Discriminant Analysis': QuadraticDiscriminantAnalysis(),
                'Random Forest': RandomForestClassifier(n_jobs=-1),
-               'K-Nearest Neighbors': KNeighborsClassifier(n_jobs=-1),
+               'K-Nearest Neighbours': KNeighborsClassifier(n_jobs=-1),
                'Radius Neighbours': RadiusNeighborsClassifier(n_jobs=-1),
-               'Nearest Centroid': NearestCentroid(),
                'Ridge': RidgeClassifier(),
                'SGD': SGDClassifier(),
-               'Nu-SVC': NuSVC(),
-               'Linear-SVC': LinearSVC(),
-               'SVC': SVC()}
+               'Nu-SVM': NuSVC(),
+               'Linear-SVM': LinearSVC(),
+               'SVM': SVC()}
 regressors = {'Linear Regression': LinearRegression(n_jobs=-1),
               'Decision Tree': DecisionTreeRegressor(),
               'Random Forest': RandomForestRegressor(n_jobs=-1),
-              'K-Nearest Neighbour': KNeighborsRegressor(n_jobs=-1),
-              'Lasso': Lasso(),
+              'K-Nearest Neighbours': KNeighborsRegressor(n_jobs=-1),
               'Ridge': Ridge(),
-              'Elastic Net': ElasticNet(),
               'Radius Neighbours': RadiusNeighborsRegressor(n_jobs=-1),
               'SGD': SGDRegressor(),
-              'Huber': HuberRegressor(),
-              'Nu-SVR': NuSVR(),
-              'Linear-SVR': LinearSVR(),
-              'SVR': SVR()}
+              'Nu-SVM': NuSVR(),
+              'Linear-SVM': LinearSVR(),
+              'SVM': SVR()}
 scoring_classifiers = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
 scoring_regressors = ['explained_variance', 'max_error', 'neg_mean_absolute_error', 'neg_mean_squared_error',
                       'neg_root_mean_squared_error', 'neg_median_absolute_error', 'r2']
@@ -59,19 +55,40 @@ class ScalingType(enum.Enum):
     ROBUST = 2,
     NONE = 3,
 
+    @staticmethod
+    def all():
+        return [ScalingType.NONE, ScalingType.STANDARD, ScalingType.ROBUST]
+
+    @staticmethod
+    def get_type_by_name(name):
+        for scaling_type in ScalingType.all():
+            if scaling_type.name.lower() == name.lower():
+                return scaling_type
+
+        return None
+
 
 class MethodType(enum.Enum):
     Classification = 1
     Regression = 2
 
 
-scaler = RobustScaler()
+def get_scaler_by_type(scaling_type):
+    if scaling_type == ScalingType.STANDARD:
+        return StandardScaler()
+    elif scaling_type == ScalingType.ROBUST:
+        return RobustScaler()
+    else:
+        return None
+
+
 normalizer = Normalizer()
 
 
-def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_files=0, test_size=0,
-                               enable_normalization=False):
-    if num_test_files > 0:
+def train_test_split_from_data(df_from_each_file, scaling_type=ScalingType.NONE, enable_normalization=False, **args):
+    scaler = get_scaler_by_type(scaling_type)
+    if 'num_test_files' in args:
+        num_test_files = args['num_test_files']
         training_sets = df_from_each_file[:len(df_from_each_file) - num_test_files]
         test_sets = df_from_each_file[len(df_from_each_file) - num_test_files:]
         training = pd.concat(training_sets, ignore_index=True)
@@ -81,12 +98,13 @@ def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_
         features = cols[:len(cols) - 1]
         label = cols[-1]
 
-        train_x = np.array([training[features]]).reshape(-1, len(features))
-        train_y = np.array(training[label]).reshape(-1, 1)
-        test_x = np.array([test[features]]).reshape(-1, len(features))
-        test_y = np.array(test[label]).reshape(-1, 1)
+        train_x = training[features]
+        train_y = training[label]
+        test_x = test[features]
+        test_y = test[label]
 
     else:
+        test_size = args['test_size']
         df = pd.concat(df_from_each_file, ignore_index=True)
         cols = [col for col in df.columns]
         features = cols[:len(cols) - 1]
@@ -101,7 +119,7 @@ def train_test_split_from_data(df_from_each_file, enable_scaling=True, num_test_
             test_x = None
             test_y = None
 
-    if enable_scaling:
+    if scaler is not None:
         train_x = scaler.fit_transform(train_x)
         if test_x is not None:
             test_x = scaler.transform(test_x)
@@ -143,29 +161,71 @@ def load_from_directory(files_dir, cols=[], concat=False, sheet_name='', header_
     return pd.concat(df_from_each_file, ignore_index=True) if concat else df_from_each_file
 
 
-def perform_experiment_on_data(df_from_each_file, method_type, enable_scaling=True, enable_normalization=True):
+def perform_experiment_on_data(df_from_each_file, method_type, scaling_type=ScalingType.NONE,
+                               enable_normalization=True):
     results = {}
     test_sizes = []
     max_num_test_files = int(len(df_from_each_file) / 5)
     if max_num_test_files >= 1:
         for num_test_files in range(1, max_num_test_files + 1):
             test_sizes.append(num_test_files)
-            results[num_test_files] = run_with_different_methods(method_type, df_from_each_file, enable_scaling,
+            results[num_test_files] = run_with_different_methods(method_type, df_from_each_file, scaling_type,
                                                                  num_test_files=num_test_files,
                                                                  enable_normalization=enable_normalization)
     else:
         for test_size in list(np.arange(0.01, 0.2, 0.01)):
             test_sizes.append(test_size)
-            results[test_size] = run_with_different_methods(method_type, df_from_each_file, enable_scaling,
+            results[test_size] = run_with_different_methods(method_type, df_from_each_file, scaling_type,
                                                             test_size=test_size,
                                                             enable_normalization=enable_normalization)
     return results, test_sizes
 
 
-def run_with_different_methods(method_type, df_from_each_file, enable_scaling=True, num_test_files=0, test_size=0,
-                               enable_normalization=True):
-    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, enable_scaling, num_test_files,
-                                                                  test_size, enable_normalization)
+def get_average_score(model_name, df_from_each_file, scaling_type=ScalingType.NONE, enable_normalization=True,
+                      use_grid_search=False, method_type=MethodType.Regression):
+    max_num_test_files = int(len(df_from_each_file) / 5)
+    model = select_method(model_name, method_type, use_grid_search)
+    scores = np.zeros(max_num_test_files)
+    for num_test_files in range(1, max_num_test_files + 1):
+        x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, scaling_type,
+                                                                      enable_normalization,
+                                                                      num_test_files=num_test_files)
+        model.fit(x_train, y_train)
+        actual = model.predict(x_test)
+        scores[num_test_files - 1] = mean_squared_error(y_test,
+                                                        actual) if method_type == MethodType.Regression else accuracy_score(
+            y_test, actual)
+    return np.mean(scores)
+
+
+def output_average_scores_for_all_methods(output_dir, out_file_name, files_dir, features, label, method_type):
+    df_results = pd.DataFrame(
+        columns=['Regressor' if method_type == MethodType.Regression else 'Classifier', 'Scaling Type',
+                 'Enable Normalization', 'Use Default Params',
+                 'Mean Squared Error' if method_type == MethodType.Regression else 'Accuracy'])
+    cols = [feature for feature in features]
+    cols.append(label)
+    df_from_each_file = load_from_directory(files_dir, cols, concat=False)
+    methods = classifiers if method_type == MethodType.Classification else regressors
+    for method_name in methods:
+        for scaling_type in ScalingType.all():
+            for enable_normalization in [False, True]:
+                for use_grid_search in [False, True]:
+                    df_results = df_results.append(
+                        {'Regressor' if method_type == MethodType.Regression else 'Classifier': method_name,
+                         'Scaling Type': scaling_type.name,
+                         'Enable Normalization': 'Yes' if enable_normalization else 'No',
+                         'Use Default Params': 'No' if use_grid_search else 'Yes',
+                         'Mean Squared Error' if method_type == MethodType.Regression else 'Accuracy':
+                             get_average_score(method_name, df_from_each_file, scaling_type, enable_normalization, use_grid_search, method_type)},
+                        ignore_index=True)
+    df_results.to_csv(join(output_dir, '{0}.csv'.format(out_file_name)))
+
+
+def run_with_different_methods(method_type, df_from_each_file, enable_scaling=True,
+                               enable_normalization=True, **args):
+    x_train, y_train, x_test, y_test = train_test_split_from_data(df_from_each_file, enable_scaling,
+                                                                  enable_normalization, **args)
     methods = classifiers if method_type == MethodType.Classification else regressors
     metrics = metrics_classifiers if method_type == MethodType.Classification else metrics_regressors
     scoring = scoring_classifiers if method_type == MethodType.Classification else scoring_regressors
@@ -192,10 +252,10 @@ def run_with_different_methods(method_type, df_from_each_file, enable_scaling=Tr
 
 def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
     metrics_to_data = {}
-    method_names = list(methods.keys())
+    method_keys = list(methods.keys())
     for metric in metrics:
         data_for_metric = []
-        for i in range(len(method_names)):
+        for i in range(len(method_keys)):
             data_for_metric.append([])
         for test_size in test_sizes:
             metric_data = results[test_size][metric]
@@ -208,7 +268,6 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
 def select_method(choosing_method, method_type, use_grid_search=True):
     chosen_method = None
     methods = classifiers if method_type == MethodType.Classification else regressors
-
     if choosing_method == 'random':
         chosen_method = randomly_select_method(methods)
     else:
@@ -217,7 +276,7 @@ def select_method(choosing_method, method_type, use_grid_search=True):
                 chosen_method = methods[method_name]
                 break
     if use_grid_search:
-        params = get_testable_parameters(chosen_method)
+        params = get_testable_parameters(chosen_method, method_type)
         return set_up_gridsearch(chosen_method, params, method_type)
     else:
         return chosen_method
@@ -237,7 +296,7 @@ def set_up_gridsearch(method, params, method_type):
         return method
 
 
-def get_testable_parameters(method_name):
+def get_testable_parameters(method_name, method_type):
     if method_name == 'Linear Regression':
         return {'normalize': [True, False]}
     elif method_name in ['Decision Tree', 'Random Forest']:
@@ -281,53 +340,56 @@ def get_testable_parameters(method_name):
                 'fit_intercept': [True, False],
                 'solver': ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga'],
                 'l1_ratio': list(np.arange(0, 1, 0.05))}
-    elif method_name == 'SVC':
-        return {'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
-                'gamma': ['scale', 'auto'],
-                'shrinking': [True, False],
-                'probability': [True, False],
-                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
-                'cache_size': list(np.arange(100, 1000, 100)),
-                'decision_function': ['ovo', 'ovr'],
-                'break_ties': [True, False]}
-    elif method_name == 'SVR':
-        return {'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
-                'gamma': ['scale', 'auto'],
-                'shrinking': [True, False],
-                'epsilon': list(np.arange(0, 1, 0.05)),
-                'cache_size': list(np.arange(100, 1000, 100)),
-                'decision_function': ['ovo', 'ovr'],
-                'break_ties': [True, False]}
-    elif method_name == 'Nu-SVC':
-        return {'nu': list(np.arange(0, 1, 0.05)),
-                'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
-                'gamma': ['scale', 'auto'],
-                'shrinking': [True, False],
-                'probability': [True, False],
-                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
-                'cache_size': list(np.arange(100, 1000, 100)),
-                'decision_function': ['ovo', 'ovr'],
-                'break_ties': [True, False]}
-    elif method_name == 'Nu-SVR':
-        return {'nu': list(np.arange(0, 1, 0.05)),
-                'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
-                'gamma': ['scale', 'auto'],
-                'shrinking': [True, False],
-                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
-                'cache_size': list(np.arange(100, 1000, 100)),
-                'break_ties': [True, False]}
-    elif method_name == 'Linear-SVC':
-        return {'penalty': ['l1', 'l2'],
-                'loss': ['hinge', 'squared_hinge'],
-                'dual': [True, False],
-                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
-                'multi_class': ['ovr', 'crammer_singer'],
-                'fit_intercept': [True, False]}
-    elif method_name == 'Linear-SVR':
-        return {'epsilon': list(np.arange(0, 1, 0.05)),
-                'loss': ['epsilon_insensitive', 'squared_epsilon_insensitive'],
-                'dual': [True, False],
-                'tol': [1e-1, 1e-2, 1e-3, 1e-4],
-                'fit_intercept': [True, False]}
+    elif method_name == 'SVM':
+        if method_type == MethodType.Classification:
+            return {'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
+                    'gamma': ['scale', 'auto'],
+                    'shrinking': [True, False],
+                    'probability': [True, False],
+                    'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                    'cache_size': list(np.arange(100, 1000, 100)),
+                    'decision_function': ['ovo', 'ovr'],
+                    'break_ties': [True, False]}
+        else:
+            return {'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
+                    'gamma': ['scale', 'auto'],
+                    'shrinking': [True, False],
+                    'epsilon': list(np.arange(0, 1, 0.05)),
+                    'cache_size': list(np.arange(100, 1000, 100)),
+                    'decision_function': ['ovo', 'ovr'],
+                    'break_ties': [True, False]}
+    elif method_name == 'Nu-SVM':
+        if method_type == MethodType.Classification:
+            return {'nu': list(np.arange(0, 1, 0.05)),
+                    'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
+                    'gamma': ['scale', 'auto'],
+                    'shrinking': [True, False],
+                    'probability': [True, False],
+                    'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                    'cache_size': list(np.arange(100, 1000, 100)),
+                    'decision_function': ['ovo', 'ovr'],
+                    'break_ties': [True, False]}
+        else:
+            return {'nu': list(np.arange(0, 1, 0.05)),
+                    'kernel': ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed'],
+                    'gamma': ['scale', 'auto'],
+                    'shrinking': [True, False],
+                    'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                    'cache_size': list(np.arange(100, 1000, 100)),
+                    'break_ties': [True, False]}
+    elif method_name == 'Linear-SVM':
+        if method_type == MethodType.Classification:
+            return {'penalty': ['l1', 'l2'],
+                    'loss': ['hinge', 'squared_hinge'],
+                    'dual': [True, False],
+                    'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                    'multi_class': ['ovr', 'crammer_singer'],
+                    'fit_intercept': [True, False]}
+        else:
+            return {'epsilon': list(np.arange(0, 1, 0.05)),
+                    'loss': ['epsilon_insensitive', 'squared_epsilon_insensitive'],
+                    'dual': [True, False],
+                    'tol': [1e-1, 1e-2, 1e-3, 1e-4],
+                    'fit_intercept': [True, False]}
     else:
         return {}

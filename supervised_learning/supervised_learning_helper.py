@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.preprocessing import RobustScaler, Normalizer, StandardScaler
 
-from .common import select_method, load_from_directory, ScalingType
+from .common import select_method, load_from_directory, ScalingType, get_scaler_by_type
 
 
 class SupervisedLearningHelper:
@@ -73,10 +73,7 @@ class ScikitLearnHelper(SupervisedLearningHelper):
     def __init__(self, method_type, enable_normalization=False, scaling_type=ScalingType.NONE, **args):
         use_grid_search = args['use_grid_search'] if 'use_grid_search' in args else False
         self.model = select_method(args['choosing_method'], method_type, use_grid_search)
-        if scaling_type == ScalingType.STANDARD:
-            self.scaler = StandardScaler()
-        elif scaling_type == ScalingType.ROBUST:
-            self.scaler = RobustScaler()
+        self.scaler = get_scaler_by_type(scaling_type)
         super().__init__(method_type, enable_normalization, scaling_type, **args)
 
     def fit(self, x, y):
