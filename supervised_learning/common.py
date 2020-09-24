@@ -268,7 +268,7 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
     return metrics_to_data, test_sizes
 
 
-def select_method(choosing_method, method_type, use_grid_search=True, enable_normalization=False):
+def select_method(choosing_method, method_type, use_grid_search=True, enable_normalization=False, cv=0):
     chosen_method = None
     methods = classifiers if method_type == MethodType.Classification else regressors
     if choosing_method == 'random':
@@ -289,7 +289,7 @@ def select_method(choosing_method, method_type, use_grid_search=True, enable_nor
             chosen_method = ElasticNet(normalize=enable_normalization)
     if use_grid_search:
         params = get_testable_parameters(chosen_method, method_type)
-        return set_up_gridsearch(chosen_method, params, method_type)
+        return set_up_gridsearch(chosen_method, params, method_type, cv)
     else:
         return chosen_method
 
@@ -299,9 +299,9 @@ def randomly_select_method(methods):
     return methods[key]
 
 
-def set_up_gridsearch(method, params, method_type):
+def set_up_gridsearch(method, params, method_type, cv):
     if not bool(params):
-        return GridSearchCV(method, param_grid=params, cv=10,
+        return GridSearchCV(method, param_grid=params, cv=cv,
                             scoring='neg_mean_squared_error' if method_type == MethodType.Regression else 'accuracy',
                             verbose=0, n_jobs=-1)
     else:

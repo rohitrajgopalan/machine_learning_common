@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.preprocessing import RobustScaler, Normalizer, StandardScaler
+from sklearn.preprocessing import Normalizer
 
 from .common import select_method, load_from_directory, ScalingType, get_scaler_by_type
 
@@ -72,7 +72,7 @@ class ScikitLearnHelper(SupervisedLearningHelper):
 
     def __init__(self, method_type, enable_normalization=False, scaling_type=ScalingType.NONE, **args):
         use_grid_search = args['use_grid_search'] if 'use_grid_search' in args else False
-        self.model = select_method(args['choosing_method'], method_type, use_grid_search, enable_normalization)
+        self.model = select_method(args['choosing_method'], method_type, use_grid_search, enable_normalization, args['cv'])
         self.scaler = get_scaler_by_type(scaling_type)
         if args['choosing_method'] in ['Linear Regression', 'Lasso', 'Ridge', 'Elastic Net']:
             enable_normalization = False
