@@ -72,15 +72,17 @@ class ScikitLearnHelper(SupervisedLearningHelper):
 
     def __init__(self, method_type, enable_normalization=False, scaling_type=ScalingType.NONE, **args):
         use_grid_search = args['use_grid_search'] if 'use_grid_search' in args else False
-        self.model = select_method(args['choosing_method'], method_type, use_grid_search)
+        self.model = select_method(args['choosing_method'], method_type, use_grid_search, enable_normalization)
         self.scaler = get_scaler_by_type(scaling_type)
+        if args['choosing_method'] in ['Linear Regression', 'Lasso', 'Ridge', 'Elastic Net']:
+            enable_normalization = False
         super().__init__(method_type, enable_normalization, scaling_type, **args)
 
     def fit(self, x, y):
         if self.scaler is not None:
-            x = self.scaler.fit_transform(x)
+            x = self.scaler.fit_transform(x, y)
         if self.enable_normalization:
-            x = self.normalizer.fit_transform(x)
+            x = self.normalizer.fit_transform(x, y)
         self.model.fit(x, y)
 
     def predict(self, inputs):

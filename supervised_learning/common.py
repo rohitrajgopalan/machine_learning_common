@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, Ridge, SGDRegressor, \
-    RidgeClassifier, SGDClassifier, LinearRegression
+    RidgeClassifier, SGDClassifier, LinearRegression, HuberRegressor, ElasticNet, Lasso
 from sklearn.model_selection import cross_validate, train_test_split, GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor, RadiusNeighborsRegressor, \
     RadiusNeighborsClassifier
@@ -39,7 +39,10 @@ regressors = {'Linear Regression': LinearRegression(n_jobs=-1),
               'SGD': SGDRegressor(),
               'Nu-SVM': NuSVR(),
               'Linear-SVM': LinearSVR(),
-              'SVM': SVR()}
+              'SVM': SVR(),
+              'Huber': HuberRegressor(),
+              'Elastic Net': ElasticNet(),
+              'Lasso': Lasso()}
 scoring_classifiers = ['accuracy', 'precision_macro', 'recall_macro', 'f1_weighted', 'roc_auc']
 scoring_regressors = ['explained_variance', 'max_error', 'neg_mean_absolute_error', 'neg_mean_squared_error',
                       'neg_root_mean_squared_error', 'neg_median_absolute_error', 'r2']
@@ -265,7 +268,7 @@ def shape_experimental_data_for_plotting(results, test_sizes, methods, metrics):
     return metrics_to_data, test_sizes
 
 
-def select_method(choosing_method, method_type, use_grid_search=True):
+def select_method(choosing_method, method_type, use_grid_search=True, enable_normalization=False):
     chosen_method = None
     methods = classifiers if method_type == MethodType.Classification else regressors
     if choosing_method == 'random':
@@ -275,6 +278,15 @@ def select_method(choosing_method, method_type, use_grid_search=True):
             if method_name.lower() == choosing_method.lower():
                 chosen_method = methods[method_name]
                 break
+    if choosing_method in ['Linear Regression', 'Lasso', 'Ridge', 'Elastic Net']:
+        if choosing_method == 'Linear Regression':
+            chosen_method = LinearRegression(normalize=enable_normalization, n_jobs=-1)
+        elif choosing_method == 'Lasso':
+            chosen_method = Lasso(normalize=enable_normalization)
+        elif choosing_method == 'Ridge':
+            chosen_method = Ridge(normalize=enable_normalization)
+        elif choosing_method == 'Elastic Net':
+            chosen_method = ElasticNet(normalize=enable_normalization)
     if use_grid_search:
         params = get_testable_parameters(chosen_method, method_type)
         return set_up_gridsearch(chosen_method, params, method_type)
@@ -289,7 +301,7 @@ def randomly_select_method(methods):
 
 def set_up_gridsearch(method, params, method_type):
     if not bool(params):
-        return GridSearchCV(method, param_grid=params, cv=5,
+        return GridSearchCV(method, param_grid=params, cv=10,
                             scoring='neg_mean_squared_error' if method_type == MethodType.Regression else 'accuracy',
                             verbose=0, n_jobs=-1)
     else:
@@ -297,20 +309,16 @@ def set_up_gridsearch(method, params, method_type):
 
 
 def get_testable_parameters(method_name, method_type):
-    if method_name == 'Linear Regression':
-        return {'normalize': [True, False]}
-    elif method_name in ['Decision Tree', 'Random Forest']:
+    if method_name in ['Decision Tree', 'Random Forest']:
         return {'max_features': ['auto', 'log2', 'sqrt']}
     elif method_name in ['Lasso', 'Ridge']:
-        return {'normalize': [True, False],
-                'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+        return {'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
                 'tol': [1e-1, 1e-2, 1e-3, 1e-4]}
     elif method_name == 'Huber':
         return {'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
                 'tol': [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]}
     elif method_name == 'Elastic Net':
-        return {'normalize': [True, False],
-                'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+        return {'alpha': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
                 'tol': [1e-1, 1e-2, 1e-3, 1e-4],
                 'l1_ratio': list(np.arange(0, 1, 0.05))}
     elif method_name in ['K-Nearest Neighbour', 'Radius Neighbours']:
