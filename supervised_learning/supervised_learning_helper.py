@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.preprocessing import Normalizer
+from sklearn.preprocessing import Normalizer, PolynomialFeatures
 
 from .common import select_method, load_from_directory, ScalingType, get_scaler_by_type
 
@@ -69,6 +69,7 @@ class SupervisedLearningHelper:
 class ScikitLearnHelper(SupervisedLearningHelper):
     scaler = None
     normalizer = Normalizer()
+    poly = PolynomialFeatures()
 
     def __init__(self, method_type, enable_normalization=False, scaling_type=ScalingType.NONE, **args):
         use_grid_search = args['use_grid_search'] if 'use_grid_search' in args else False
@@ -79,6 +80,8 @@ class ScikitLearnHelper(SupervisedLearningHelper):
         super().__init__(method_type, enable_normalization, scaling_type, **args)
 
     def fit(self, x, y):
+        if len(self.features) > 1:
+            x = self.poly.fit_transform(x, y)
         if self.scaler is not None:
             x = self.scaler.fit_transform(x, y)
         if self.enable_normalization:
@@ -86,6 +89,8 @@ class ScikitLearnHelper(SupervisedLearningHelper):
         self.model.fit(x, y)
 
     def predict(self, inputs):
+        if len(self.features) > 1:
+            inputs = self.poly.transform(inputs)
         if self.scaler is not None:
             inputs = self.scaler.transform(inputs)
         if self.enable_normalization:
